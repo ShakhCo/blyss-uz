@@ -2,7 +2,7 @@ import { headers } from 'next/headers'
 
 const MAIN_DOMAIN = 'blyss.uz'
 const LOCAL_DOMAIN = 'localhost'
-const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'cdn', 'static', 'mail'] as const
+const RESERVED_SUBDOMAINS = ['www', 'app', 'admin', 'api', 'cdn', 'static', 'mail']
 
 export type TenantSlug = string
 
@@ -63,7 +63,7 @@ export function getTenantUrl(tenantSlug: string, path: string = ''): string {
  * Check if a subdomain is reserved
  */
 export function isReservedSubdomain(subdomain: string): boolean {
-  return RESERVED_SUBDOMAINS.includes(subdomain as any)
+  return RESERVED_SUBDOMAINS.includes(subdomain)
 }
 
 /**
