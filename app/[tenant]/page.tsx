@@ -1,4 +1,5 @@
 import { getTenant } from '@/lib/tenant'
+import type { Metadata } from 'next'
 
 interface Service {
   id: string
@@ -39,6 +40,26 @@ async function getBusinessData(tenantSlug: string): Promise<BusinessData | null>
   } catch (error) {
     console.error('Failed to fetch business data:', error)
     return null
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ tenant: string }>
+}): Promise<Metadata> {
+  const { tenant: tenantSlug } = await params
+  const businessData = await getBusinessData(tenantSlug)
+
+  if (!businessData) {
+    return {
+      title: 'Business Not Found',
+    }
+  }
+
+  return {
+    title: businessData.business.name,
+    description: `Book services at ${businessData.business.name}`,
   }
 }
 
