@@ -2,8 +2,9 @@
 
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+function ThemeProviderWrapper({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const colorScheme = searchParams.get('colorScheme');
 
@@ -21,4 +22,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [colorScheme]);
 
   return <>{children}</>;
+}
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<>{children}</>}>
+      <ThemeProviderWrapper>{children}</ThemeProviderWrapper>
+    </Suspense>
+  );
 }
