@@ -91,7 +91,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
   return (
     <div className="min-h-screen bg-stone-100">
       {/* Hero Header */}
-      <div className="bg-white rounded-b-[2rem] px-4 pt-6 pb-6 shadow-sm">
+      <div className="bg-white rounded-b-3xl px-4 pt-6 pb-6 shadow-sm">
         {/* Business Status Badge */}
         <div className="flex justify-center mb-4">
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
@@ -220,10 +220,12 @@ export function TenantPage({ business, services }: TenantPageProps) {
         <div
           className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 p-4"
           onClick={() => setShowBooking(false)}
+          style={{ animation: 'fadeIn 0.2s ease-out' }}
         >
           <div
-            className="bg-white rounded-t-3xl w-full max-w-md p-6 animate-slide-up"
+            className="bg-white rounded-t-3xl w-full max-w-md p-6"
             onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'slideUp 0.3s ease-out' }}
           >
             <div className="w-12 h-1 bg-stone-300 rounded-full mx-auto mb-6" />
 
@@ -267,20 +269,6 @@ export function TenantPage({ business, services }: TenantPageProps) {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }

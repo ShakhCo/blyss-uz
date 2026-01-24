@@ -98,5 +98,7 @@ export default async function Page({
 
   const { business, services } = businessData
 
-  return <TenantPage business={business} services={services} />
+  return <div>
+    <TenantPage business={business} services={services} />
+  </div>
 }
