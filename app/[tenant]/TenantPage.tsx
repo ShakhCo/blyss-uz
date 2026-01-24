@@ -182,7 +182,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
               {services.map((service, index) => (
                 <button
                   key={service.id}
-                  onClick={() => handleServiceSelect(service)}
+                  // onClick={() => handleServiceSelect(service)}
                   className="w-full flex items-center gap-4 px-4 py-4 hover:bg-stone-50 transition-colors text-left"
                 >
                   <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
