@@ -2,9 +2,15 @@ import { getTenant } from '@/lib/tenant'
 import type { Metadata } from 'next'
 import { TenantPage } from './TenantPage'
 
+interface MultilingualText {
+  uz: string
+  ru: string
+}
+
 interface Service {
   id: string
-  name: string
+  name: MultilingualText
+  description?: MultilingualText | null
   price: number
   duration_minutes: number
 }
@@ -14,14 +20,13 @@ interface BusinessData {
     name: string
     business_type: string
     location: {
-      address?: string
-      city?: string
-      latitude?: number
-      longitude?: number
+      lat?: number
+      lng?: number
     }
-    working_hours?: Record<string, any>
+    working_hours?: Record<string, { start: number; end: number; is_open: boolean }>
     business_phone_number: string
     tenant_url: string
+    avatar_url?: string | null
   }
   services: Service[]
 }

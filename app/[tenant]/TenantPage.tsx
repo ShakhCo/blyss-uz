@@ -1,11 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, MapPin, Phone, Check, Calendar } from 'lucide-react';
+import { Clock, MapPin, Phone, Check, Calendar, Globe } from 'lucide-react';
+
+type Language = 'uz' | 'ru';
+
+interface MultilingualText {
+  uz: string;
+  ru: string;
+}
 
 interface Service {
   id: string;
-  name: string;
+  name: MultilingualText;
+  description?: MultilingualText | null;
   price: number;
   duration_minutes: number;
 }
@@ -14,12 +22,13 @@ interface Business {
   name: string;
   business_type: string;
   location?: {
-    address?: string;
-    city?: string;
+    lat?: number;
+    lng?: number;
   };
   working_hours?: Record<string, { start: number; end: number; is_open: boolean }>;
   business_phone_number: string;
   tenant_url: string;
+  avatar_url?: string | null;
 }
 
 interface TenantPageProps {
@@ -37,34 +46,97 @@ function secondsToTime(seconds: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-// Day names in Uzbek
-const DAY_NAMES_UZ: Record<string, string> = {
-  monday: 'Dushanba',
-  tuesday: 'Seshanba',
-  wednesday: 'Chorshanba',
-  thursday: 'Payshanba',
-  friday: 'Juma',
-  saturday: 'Shanba',
-  sunday: 'Yakshanba',
+// Day names by language
+const DAY_NAMES: Record<Language, Record<string, string>> = {
+  uz: {
+    monday: 'Dushanba',
+    tuesday: 'Seshanba',
+    wednesday: 'Chorshanba',
+    thursday: 'Payshanba',
+    friday: 'Juma',
+    saturday: 'Shanba',
+    sunday: 'Yakshanba',
+  },
+  ru: {
+    monday: 'Понедельник',
+    tuesday: 'Вторник',
+    wednesday: 'Среда',
+    thursday: 'Четверг',
+    friday: 'Пятница',
+    saturday: 'Суббота',
+    sunday: 'Воскресенье',
+  },
+};
+
+// UI translations
+const UI_TEXT: Record<Language, Record<string, string>> = {
+  uz: {
+    openNow: 'Hozir ochiq',
+    closedNow: 'Hozir yopiq',
+    call: "Qo'ng'iroq",
+    location: 'Manzil',
+    workingHours: 'Ish vaqti',
+    closed: 'Yopiq',
+    services: 'Xizmatlar',
+    noServices: 'Xizmatlar mavjud emas',
+    comingSoon: "Tez orada buyurtma berish funksiyasi mavjud bo'ladi",
+    contact: "Bilan bog'lanish",
+    cancel: 'Bekor qilish',
+    minute: 'daqiqa',
+    hour: 'soat',
+    sum: "so'm",
+  },
+  ru: {
+    openNow: 'Сейчас открыто',
+    closedNow: 'Сейчас закрыто',
+    call: 'Позвонить',
+    location: 'Адрес',
+    workingHours: 'Время работы',
+    closed: 'Закрыто',
+    services: 'Услуги',
+    noServices: 'Услуги отсутствуют',
+    comingSoon: 'Функция онлайн-бронирования скоро будет доступна',
+    contact: 'Связаться',
+    cancel: 'Отмена',
+    minute: 'мин',
+    hour: 'ч',
+    sum: 'сум',
+  },
 };
 
 export function TenantPage({ business, services }: TenantPageProps) {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [showBooking, setShowBooking] = useState(false);
+  const [language, setLanguage] = useState<Language>('uz');
 
-  // Format price in Uzbek format
+  const t = UI_TEXT[language];
+  const dayNames = DAY_NAMES[language];
+
+  // Get text from multilingual object
+  const getText = (text: MultilingualText | string | null | undefined): string => {
+    if (!text) return '';
+    if (typeof text === 'string') return text;
+    return text[language] || text.uz || '';
+  };
+
+  // Format price
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price);
+    return new Intl.NumberFormat(language === 'uz' ? 'uz-UZ' : 'ru-RU').format(price);
   };
 
   // Format duration
   const formatDuration = (minutes: number) => {
     if (minutes < 60) {
-      return `${minutes} daqiqa`;
+      return `${minutes} ${t.minute}`;
     }
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    return mins > 0 ? `${hours} soat ${mins} daqiqa` : `${hours} soat`;
+    return mins > 0 ? `${hours} ${t.hour} ${mins} ${t.minute}` : `${hours} ${t.hour}`;
+  };
+
+  // Toggle language
+  const toggleLanguage = () => {
+    setLanguage(prev => prev === 'uz' ? 'ru' : 'uz');
   };
 
   // Check if business is open now
@@ -92,6 +164,28 @@ export function TenantPage({ business, services }: TenantPageProps) {
     <div className="min-h-screen bg-stone-100">
       {/* Hero Header */}
       <div className="bg-white rounded-b-3xl px-4 pt-6 pb-6 shadow-sm">
+        {/* Language Toggle */}
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={toggleLanguage}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
+          >
+            <Globe size={14} />
+            {language === 'uz' ? 'RU' : 'UZ'}
+          </button>
+        </div>
+
+        {/* Business Avatar */}
+        {business.avatar_url && (
+          <div className="flex justify-center mb-4">
+            <img
+              src={business.avatar_url}
+              alt={business.name}
+              className="w-20 h-20 rounded-full object-cover border-2 border-stone-200"
+            />
+          </div>
+        )}
+
         {/* Business Status Badge */}
         <div className="flex justify-center mb-4">
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
@@ -102,7 +196,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
             <div className={`w-2 h-2 rounded-full ${
               isOpenNow() ? 'bg-green-500' : 'bg-stone-400'
             }`} />
-            {isOpenNow() ? 'Hozir ochiq' : 'Hozir yopiq'}
+            {isOpenNow() ? t.openNow : t.closedNow}
           </div>
         </div>
 
@@ -123,18 +217,19 @@ export function TenantPage({ business, services }: TenantPageProps) {
             className="flex items-center justify-center gap-2 px-4 py-3 bg-stone-100 rounded-2xl text-stone-700 hover:bg-stone-200 transition-colors"
           >
             <Phone size={18} />
-            <span className="text-sm font-medium">Qo'ng'iroq</span>
+            <span className="text-sm font-medium">{t.call}</span>
           </a>
           <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-              business.location?.address || business.name
-            )}`}
+            href={business.location?.lat && business.location?.lng
+              ? `https://www.google.com/maps/search/?api=1&query=${business.location.lat},${business.location.lng}`
+              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(business.name)}`
+            }
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 px-4 py-3 bg-stone-100 rounded-2xl text-stone-700 hover:bg-stone-200 transition-colors"
           >
             <MapPin size={18} />
-            <span className="text-sm font-medium">Manzil</span>
+            <span className="text-sm font-medium">{t.location}</span>
           </a>
         </div>
       </div>
@@ -144,7 +239,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
         <div className="px-4 mt-4">
           <div className="bg-white rounded-3xl overflow-hidden">
             <div className="px-4 pt-4 pb-2 border-b border-stone-100">
-              <h2 className="text-lg font-bold text-stone-900">Ish vaqti</h2>
+              <h2 className="text-lg font-bold text-stone-900">{t.workingHours}</h2>
             </div>
             <div className="p-2">
               {Object.entries(business.working_hours).map(([day, hours]) => (
@@ -155,14 +250,14 @@ export function TenantPage({ business, services }: TenantPageProps) {
                   <span className={`text-sm ${
                     hours.is_open ? 'text-stone-700' : 'text-stone-400'
                   }`}>
-                    {DAY_NAMES_UZ[day]}
+                    {dayNames[day]}
                   </span>
                   <span className={`text-sm font-medium ${
                     hours.is_open ? 'text-stone-900' : 'text-stone-400'
                   }`}>
                     {hours.is_open
                       ? `${secondsToTime(hours.start)} — ${secondsToTime(hours.end)}`
-                      : 'Yopiq'}
+                      : t.closed}
                   </span>
                 </div>
               ))}
@@ -175,14 +270,14 @@ export function TenantPage({ business, services }: TenantPageProps) {
       <div className="px-4 mt-4 pb-8">
         <div className="bg-white rounded-3xl overflow-hidden">
           <div className="px-4 pt-4 pb-2 border-b border-stone-100">
-            <h2 className="text-lg font-bold text-stone-900">Xizmatlar</h2>
+            <h2 className="text-lg font-bold text-stone-900">{t.services}</h2>
           </div>
           {services.length > 0 ? (
             <div className="divide-y divide-stone-50">
-              {services.map((service, index) => (
+              {services.map((service) => (
                 <button
                   key={service.id}
-                  // onClick={() => handleServiceSelect(service)}
+                  onClick={() => handleServiceSelect(service)}
                   className="w-full flex items-center gap-4 px-4 py-4 hover:bg-stone-50 transition-colors text-left"
                 >
                   <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
@@ -192,15 +287,20 @@ export function TenantPage({ business, services }: TenantPageProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-base font-medium text-stone-900 truncate">
-                      {service.name}
+                      {getText(service.name)}
                     </h3>
+                    {service.description && getText(service.description) && (
+                      <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">
+                        {getText(service.description)}
+                      </p>
+                    )}
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-xs text-stone-500 flex items-center gap-1">
                         <Clock size={12} />
                         {formatDuration(service.duration_minutes)}
                       </span>
                       <span className="text-sm font-semibold text-primary">
-                        {formatPrice(service.price)} so'm
+                        {formatPrice(service.price)} {t.sum}
                       </span>
                     </div>
                   </div>
@@ -209,7 +309,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
             </div>
           ) : (
             <div className="p-8 text-center">
-              <p className="text-stone-500">Xizmatlar mavjud emas</p>
+              <p className="text-stone-500">{t.noServices}</p>
             </div>
           )}
         </div>
@@ -230,8 +330,14 @@ export function TenantPage({ business, services }: TenantPageProps) {
             <div className="w-12 h-1 bg-stone-300 rounded-full mx-auto mb-6" />
 
             <h3 className="text-xl font-bold text-stone-900 mb-2">
-              {selectedService.name}
+              {getText(selectedService.name)}
             </h3>
+
+            {selectedService.description && getText(selectedService.description) && (
+              <p className="text-sm text-stone-500 mb-4">
+                {getText(selectedService.description)}
+              </p>
+            )}
 
             <div className="flex items-center gap-4 text-sm text-stone-600 mb-6">
               <div className="flex items-center gap-1">
@@ -239,13 +345,13 @@ export function TenantPage({ business, services }: TenantPageProps) {
                 {formatDuration(selectedService.duration_minutes)}
               </div>
               <div className="font-semibold text-primary">
-                {formatPrice(selectedService.price)} so'm
+                {formatPrice(selectedService.price)} {t.sum}
               </div>
             </div>
 
             <div className="bg-stone-50 rounded-2xl p-4 mb-6">
               <p className="text-sm text-stone-600 text-center">
-                Tez orada buyurtma berish funksiyasi mavjud bo'ladi
+                {t.comingSoon}
               </p>
             </div>
 
@@ -257,14 +363,14 @@ export function TenantPage({ business, services }: TenantPageProps) {
               className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-primary text-white rounded-2xl font-semibold hover:bg-primary-dark transition-colors"
             >
               <Phone size={20} />
-              Bilan bog'lanish
+              {t.contact}
             </button>
 
             <button
               onClick={() => setShowBooking(false)}
               className="w-full px-6 py-4 text-stone-600 font-medium hover:text-stone-900 transition-colors"
             >
-              Bekor qilish
+              {t.cancel}
             </button>
           </div>
         </div>
