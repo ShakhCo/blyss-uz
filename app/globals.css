@@ -3,9 +3,7 @@
 :root {
   --background: #f8f8f8;
   --foreground: #171717;
-  --primary: #10b981;
-  --primary-dark: #059669;
-  --primary-light: #34d399;
+  --primary: #088395;
 }
 
 @theme inline {
@@ -170,7 +168,7 @@ img {
 
 /* Selection color */
 ::selection {
-  background-color: rgba(16, 185, 129, 0.2);
+  background-color: rgba(8, 131, 149, 0.2);
   color: inherit;
 }
 

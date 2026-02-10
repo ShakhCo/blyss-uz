@@ -1,4 +1,5 @@
 import { getTenant } from '@/lib/tenant'
+import { signedFetch } from '@/lib/api'
 import type { Metadata } from 'next'
 import { TenantPage } from './TenantPage'
 
@@ -34,11 +35,13 @@ interface BusinessData {
 async function getBusinessData(tenantSlug: string): Promise<BusinessData | null> {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-    const response = await fetch(`${apiUrl}/public/businesses/${tenantSlug}/services`, {
+    const response = await signedFetch(`${apiUrl}/public/businesses/${tenantSlug}/services`, {
       cache: 'no-store'
     })
 
     if (!response.ok) {
+      const text = await response.text()
+      console.error(`[getBusinessData] ${response.status} ${response.statusText}:`, text)
       return null
     }
 
