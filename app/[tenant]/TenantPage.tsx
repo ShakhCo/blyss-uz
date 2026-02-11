@@ -111,7 +111,7 @@ const UI_TEXT: Record<Language, Record<string, string>> = {
     sum: "so'm",
     reviews: 'sharhlar',
     today: 'Bugun',
-    seeAllImages: "Barcha suratlarni ko'rish",
+    seeAllImages: "Hammasini ko'rish",
     searchServices: 'Xizmatlarni qidirish...',
     book: 'Band qilish',
     about: 'Haqida',
@@ -152,7 +152,7 @@ const UI_TEXT: Record<Language, Record<string, string>> = {
     sum: 'сум',
     reviews: 'отзывов',
     today: 'Сегодня',
-    seeAllImages: 'Посмотреть все фото',
+    seeAllImages: 'все фото',
     searchServices: 'Поиск услуг...',
     book: 'Забронировать',
     about: 'О салоне',
@@ -386,7 +386,74 @@ export function TenantPage({ business, services }: TenantPageProps) {
   const closingTime = getClosingTime();
 
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-900">
+    <div className="min-h-screen bg-white dark:bg-zinc-900 pt-10">
+
+      {/* Business Info Header */}
+      <div className="max-w-[1350px] mx-auto px-4 lg:px-6 mb-4">
+        <h1 className="text-2xl lg:text-4xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">
+          {business.name}
+        </h1>
+
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 mt-1">
+          {/* Rating */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star key={star} size={18} className="text-yellow-500 fill-yellow-500" />
+              ))}
+            </div>
+            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-base">{business.rating || '5.0'}</span>
+            <span className="text-base text-zinc-500 dark:text-zinc-400">({business.reviews_count || 248})</span>
+          </div>
+
+          <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
+
+          {/* Open/Closed */}
+          {openStatus && closingTime ? (
+            <span className="text-base font-medium text-green-600 dark:text-green-400">
+              {t.openUntil.replace('{{time}}', closingTime)}
+            </span>
+          ) : (
+            <span className="text-base font-medium text-red-500 dark:text-red-400">{t.closedNow}</span>
+          )}
+
+          {/* Location */}
+          {business.location?.address && (
+            <span className="text-base text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+              <MapPin size={15} />
+              {business.location.address}
+            </span>
+          )}
+
+          {/* Distance */}
+          {distanceLoading && (
+            <>
+              <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
+              <span className="inline-block w-24 h-4 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse" />
+            </>
+          )}
+          {distance && !distanceLoading && (
+            <>
+              <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
+              <span className="text-base text-zinc-500 dark:text-zinc-400">
+                {t.distanceAway.replace('{{distance}}', `${distance.distance} ${distance.metric}`)}
+              </span>
+            </>
+          )}
+          {distanceDenied && !distance && !distanceLoading && (
+            <>
+              <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
+              <button
+                onClick={() => fetchDistance(true)}
+                className="text-base text-primary hover:underline flex items-center gap-1"
+              >
+                <MapPin size={14} />
+                {t.showDistance}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* ===== GALLERY MOSAIC ===== */}
       <div className="relative">
@@ -445,18 +512,18 @@ export function TenantPage({ business, services }: TenantPageProps) {
 
         {/* Desktop: Mosaic grid */}
         <div className="hidden lg:block max-w-[1350px] mx-auto px-6 pt-4">
-          <div className="grid grid-cols-3 grid-rows-2 gap-2 h-[600px] rounded-2xl overflow-hidden">
+          <div className="grid grid-cols-3 grid-rows-2 gap-5 h-[450px]">
             {/* Large main image */}
             <div className="col-span-2 row-span-2 relative cursor-pointer group" onClick={() => { setCurrentImageIndex(0); setShowGallery(true); }}>
-              <img src={galleryImages[0]} alt={business.name} className="w-full h-full object-cover group-hover:brightness-95 transition-all" />
+              <img src={galleryImages[0]} alt={business.name} className="w-full h-full rounded-lg object-cover group-hover:brightness-95 transition-all" />
             </div>
             {/* Two stacked images on the right */}
             {galleryImages.slice(1, 3).map((img, idx) => (
-              <div key={idx} className="relative cursor-pointer group overflow-hidden" onClick={() => { setCurrentImageIndex(idx + 1); setShowGallery(true); }}>
-                <img src={img} alt="" className="w-full h-full object-cover group-hover:brightness-95 transition-all" />
+              <div key={idx} className="relative cursor-pointer rounded-lg overflow-hidden" onClick={() => { setCurrentImageIndex(idx + 1); setShowGallery(true); }}>
+                <img src={img} alt="" className="w-full h-full rounded-lg object-cover transition-all" />
                 {idx === 1 && galleryImages.length > 3 && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center hover:bg-black/50 transition-colors">
-                    <span className="text-white font-medium text-sm">{t.seeAllImages}</span>
+                  <div className="absolute inset-0 flex items-end p-2 justify-end transition-colors">
+                    <span className="text-zinc-900 font-medium text-xs bg-white px-3 py-2.5 rounded-xl capitalize">{t.seeAllImages}</span>
                   </div>
                 )}
               </div>
@@ -491,77 +558,10 @@ export function TenantPage({ business, services }: TenantPageProps) {
 
       {/* ===== MAIN CONTENT (Desktop: 2/3 + 1/3 grid starting from business header) ===== */}
       <div className="max-w-[1350px] mx-auto px-4 lg:px-6 pb-8">
-        <div className="lg:grid lg:grid-cols-3 lg:gap-3">
+        <div className="lg:grid lg:grid-cols-3 lg:gap-5">
 
           {/* ===== LEFT COLUMN: Business Info + Services ===== */}
-          <div className="lg:col-span-2">
-
-            {/* Business Info Header */}
-            <div className="py-5 lg:py-6">
-              <h1 className="text-2xl lg:text-4xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">
-                {business.name}
-              </h1>
-
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 mt-3">
-                {/* Rating */}
-                <div className="flex items-center gap-1.5">
-                  <div className="flex">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} size={18} className="text-yellow-500 fill-yellow-500" />
-                    ))}
-                  </div>
-                  <span className="font-bold text-zinc-900 dark:text-zinc-100 text-base">{business.rating || '5.0'}</span>
-                  <span className="text-base text-zinc-500 dark:text-zinc-400">({business.reviews_count || 248})</span>
-                </div>
-
-                <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
-
-                {/* Open/Closed */}
-                {openStatus && closingTime ? (
-                  <span className="text-base font-medium text-green-600 dark:text-green-400">
-                    {t.openUntil.replace('{{time}}', closingTime)}
-                  </span>
-                ) : (
-                  <span className="text-base font-medium text-red-500 dark:text-red-400">{t.closedNow}</span>
-                )}
-
-                {/* Location */}
-                {business.location?.address && (
-                  <span className="text-base text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
-                    <MapPin size={15} />
-                    {business.location.address}
-                  </span>
-                )}
-
-                {/* Distance */}
-                {distanceLoading && (
-                  <>
-                    <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
-                    <span className="inline-block w-24 h-4 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse" />
-                  </>
-                )}
-                {distance && !distanceLoading && (
-                  <>
-                    <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
-                    <span className="text-base text-zinc-500 dark:text-zinc-400">
-                      {t.distanceAway.replace('{{distance}}', `${distance.distance} ${distance.metric}`)}
-                    </span>
-                  </>
-                )}
-                {distanceDenied && !distance && !distanceLoading && (
-                  <>
-                    <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
-                    <button
-                      onClick={() => fetchDistance(true)}
-                      className="text-base text-primary hover:underline flex items-center gap-1"
-                    >
-                      <MapPin size={14} />
-                      {t.showDistance}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
+          <div className="lg:col-span-2 pt-6">
 
             {/* Services Header */}
             <div className="pt-2 pb-4">
@@ -572,7 +572,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
             <div ref={servicesRef}>
 
               {/* Search */}
-              <div className="mb-5 lg:pr-8">
+              <div className="mb-5">
                 <div className="relative">
                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
                   <input
@@ -596,7 +596,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
               {/* Service Categories & Items */}
               {Object.keys(groupedServices).length > 0 ? (
                 Object.entries(groupedServices).map(([category, categoryServices]) => (
-                  <div key={category} className="mb-6 lg:mr-8 py-2">
+                  <div key={category} className="mb-6 py-2">
                     {/* Category header
                     {(Object.keys(groupedServices).length > 1 || category !== 'general') && (
                       <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-1 mt-2">
@@ -714,7 +714,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
             <div className="sticky top-[52px] space-y-5 pt-6">
 
               {/* Map */}
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+              <div className="bg-white dark:bg-zinc-900 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
                 <div className="aspect-[4/3] bg-zinc-100 dark:bg-zinc-800 relative">
                   {business.location?.lat && business.location?.lng ? (
                     <iframe
@@ -746,7 +746,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
               </div>
 
               {/* Working Hours */}
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4">
+              <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <Clock size={24} className="text-primary" />
@@ -779,7 +779,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
               </div>
 
               {/* Contact */}
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4">
+              <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <Phone size={24} className="text-primary" />
                   <h4 className="text-lg lg:text-xl font-semibold text-zinc-900 dark:text-zinc-100">{t.contact}</h4>
@@ -814,7 +814,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
         {/* ===== MOBILE: ABOUT SECTION ===== */}
         <div className="lg:hidden mt-8 space-y-4" ref={aboutRef}>
           {/* Map */}
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-none">
+          <div className="bg-white dark:bg-zinc-900 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-none">
             <div className="aspect-[2/1] bg-zinc-100 dark:bg-zinc-800">
               {business.location?.lat && business.location?.lng ? (
                 <iframe
@@ -851,14 +851,14 @@ export function TenantPage({ business, services }: TenantPageProps) {
           {/* Call button */}
           <a
             href={`tel:${business.business_phone_number}`}
-            className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-white rounded-2xl font-semibold text-sm"
+            className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-white rounded-xl font-semibold text-sm"
           >
             <Phone size={16} />
             {t.call} {business.business_phone_number}
           </a>
 
           {/* Hours - collapsible */}
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-none overflow-hidden">
+          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm dark:shadow-none overflow-hidden">
             <button
               onClick={() => setShowAllHours(!showAllHours)}
               className="w-full flex items-center justify-between p-4"
@@ -907,7 +907,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
               href={`https://instagram.com/${business.social_media.instagram}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2.5 px-4 py-3 border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-900"
+              className="flex items-center gap-2.5 px-4 py-3 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900"
             >
               <Instagram size={18} className="text-zinc-500 dark:text-zinc-400" />
               <span className="text-sm text-primary">@{business.social_media.instagram}</span>
@@ -923,7 +923,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
           <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 px-4 py-3 z-40 safe-area-bottom">
             <button
               onClick={() => setShowBooking(true)}
-              className="w-full py-3.5 bg-primary text-white rounded-2xl font-semibold text-sm active:scale-[0.98] transition-transform"
+              className="w-full py-3.5 bg-primary text-white rounded-xl font-semibold text-sm active:scale-[0.98] transition-transform"
             >
               {t.bookNow} &middot; {selectedServices.length} {t.selected} &middot; {formatPrice(totalPrice)} {t.sum}
             </button>
@@ -944,7 +944,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
               </div>
               <button
                 onClick={() => setShowBooking(true)}
-                className="px-12 py-4 bg-primary text-white rounded-2xl font-semibold text-lg hover:bg-primary/90 transition-colors"
+                className="px-12 py-4 bg-primary text-white rounded-xl font-semibold text-lg hover:bg-primary/90 transition-colors"
               >
                 {t.bookNow}
               </button>
@@ -960,7 +960,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
           onClick={() => setShowBooking(false)}
         >
           <div
-            className="bg-white dark:bg-zinc-900 w-full lg:w-[600px] rounded-t-3xl lg:rounded-2xl max-h-[90vh] overflow-hidden animate-slideUp"
+            className="bg-white dark:bg-zinc-900 w-full lg:w-[600px] rounded-t-3xl lg:rounded-xl max-h-[90vh] overflow-hidden animate-slideUp"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1008,7 +1008,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
             <div className="p-5 border-t border-zinc-200 dark:border-zinc-800 space-y-2.5">
               <a
                 href={`tel:${business.business_phone_number}`}
-                className="flex items-center justify-center gap-2 w-full py-3.5 bg-primary text-white rounded-2xl font-semibold text-sm hover:bg-primary/90 transition-colors"
+                className="flex items-center justify-center gap-2 w-full py-3.5 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors"
               >
                 <Phone size={16} />
                 {t.contact}
@@ -1031,7 +1031,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
           onClick={() => setShowLocationModal(false)}
         >
           <div
-            className="bg-white dark:bg-zinc-900 w-full lg:w-[420px] rounded-t-3xl lg:rounded-2xl overflow-hidden animate-slideUp"
+            className="bg-white dark:bg-zinc-900 w-full lg:w-[420px] rounded-t-3xl lg:rounded-xl overflow-hidden animate-slideUp"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Icon */}
@@ -1067,7 +1067,7 @@ export function TenantPage({ business, services }: TenantPageProps) {
             <div className="px-6 pb-7 pt-2">
               <button
                 onClick={() => setShowLocationModal(false)}
-                className="w-full py-3.5 bg-primary text-white rounded-2xl font-semibold text-sm active:scale-[0.98] transition-transform"
+                className="w-full py-3.5 bg-primary text-white rounded-xl font-semibold text-sm active:scale-[0.98] transition-transform"
               >
                 {t.gotIt}
               </button>
