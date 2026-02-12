@@ -317,6 +317,7 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
 
     try {
       const result = await sendOtp(phoneNumber);
+      console.log(result)
       if (result.success) {
         setOtpSent(true);
         setOtpCooldown(60);
@@ -324,7 +325,8 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
         setError(result.error || t.errorOccurred);
         if (result.wait_seconds) setOtpCooldown(result.wait_seconds);
       }
-    } catch {
+    } catch (error) {
+      console.log("error")
       setError(t.errorOccurred);
     } finally {
       setLoading(false);
@@ -388,7 +390,7 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
       case 'employees': setStep('time'); break;
       case 'phone': setStep('employees'); break;
       case 'confirm': setStep(isAuthenticated ? 'employees' : 'phone'); break;
-      default: router.push(`/${tenantSlug}`);
+      default: router.push(`/`);
     }
   };
 
@@ -746,7 +748,7 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
             )}
 
             <button
-              onClick={() => router.push(`/${tenantSlug}`)}
+              onClick={() => router.push(`/`)}
               className="w-full py-3.5 bg-primary text-white rounded-xl font-semibold text-sm"
             >
               {t.backToBusiness}

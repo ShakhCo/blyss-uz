@@ -1,6 +1,7 @@
 import { getTenant } from '@/lib/tenant'
 import { signedFetch } from '@/lib/api'
 import { BookingPage } from './BookingPage'
+import { getBookingIntent } from '../actions'
 
 interface MultilingualText {
   uz: string
@@ -45,13 +46,10 @@ async function getBusinessData(tenantSlug: string) {
 
 export default async function Page({
   params,
-  searchParams,
 }: {
   params: Promise<{ tenant: string }>
-  searchParams: Promise<{ services?: string; businessId?: string }>
 }) {
   const { tenant: tenantSlug } = await params
-  const { services: serviceIds, businessId } = await searchParams
   const tenant = await getTenant()
 
   if (!tenant.isTenant || tenant.slug !== tenantSlug) {
@@ -62,18 +60,28 @@ export default async function Page({
     )
   }
 
-  const businessData = await getBusinessData(tenantSlug)
-  if (!businessData || !businessId) {
+  const intent = await getBookingIntent()
+  if (!intent) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white">
-        <p className="text-zinc-500">Unable to load booking data.</p>
+        <p className="text-zinc-500">No booking selected. Please go back and select services.</p>
       </div>
     )
   }
 
-  const selectedServiceIds = serviceIds?.split(',') || []
+  const { businessId, serviceIds } = intent
+  const businessData = await getBusinessData(tenantSlug)
+
+  if (!businessData) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <p className="text-zinc-500">Unable to load business data.</p>
+      </div>
+    )
+  }
+
   const allServices: Service[] = businessData.services || []
-  const selectedServices = allServices.filter((s: Service) => selectedServiceIds.includes(s.id))
+  const selectedServices = allServices.filter((s: Service) => serviceIds.includes(s.id))
   const employees: Employee[] = businessData.employees || []
 
   if (selectedServices.length === 0) {

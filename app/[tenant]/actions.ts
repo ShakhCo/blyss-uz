@@ -200,3 +200,25 @@ export async function getAuthStatus() {
     return { authenticated: false }
   }
 }
+
+export async function setBookingIntent(businessId: string, serviceIds: string[]) {
+  const cookieStore = await cookies()
+  cookieStore.set('blyss_booking_intent', JSON.stringify({ businessId, serviceIds }), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 60 * 30, // 30 minutes
+    path: '/',
+  })
+}
+
+export async function getBookingIntent() {
+  try {
+    const cookieStore = await cookies()
+    const raw = cookieStore.get('blyss_booking_intent')?.value
+    if (!raw) return null
+    return JSON.parse(raw) as { businessId: string; serviceIds: string[] }
+  } catch {
+    return null
+  }
+}

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getDistance } from './actions';
+import { getDistance, setBookingIntent } from './actions';
 import {
   Clock,
   MapPin,
@@ -366,10 +366,10 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId 
     });
   };
 
-  const handleBookNow = () => {
+  const handleBookNow = async () => {
     if (selectedServices.length === 0) return;
-    const serviceIds = selectedServices.map(s => s.id).join(',');
-    router.push(`/booking?services=${serviceIds}&businessId=${businessId}`);
+    await setBookingIntent(businessId, selectedServices.map(s => s.id));
+    router.push('/booking');
   };
 
   const filteredServices = services.filter(service => {

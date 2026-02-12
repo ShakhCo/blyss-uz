@@ -24,9 +24,9 @@ export function middleware(request: NextRequest) {
   // Rewrite tenant subdomain to [tenant] route
   // e.g., store1.blyss.uz -> /store1/...
   // e.g., store1.localhost -> /store1/...
-  const newPath = `/${subdomain}${url.pathname}`
+  url.pathname = `/${subdomain}${url.pathname}`
 
-  return NextResponse.rewrite(new URL(newPath, request.url))
+  return NextResponse.rewrite(url)
 }
 
 function getSubdomain(host: string): string | null {
