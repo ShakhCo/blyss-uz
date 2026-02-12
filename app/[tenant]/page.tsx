@@ -16,8 +16,16 @@ interface Service {
   duration_minutes: number
 }
 
+interface Photo {
+  id: string
+  url: string
+  category: 'interior' | 'exterior'
+  order: number
+}
+
 interface BusinessData {
   business: {
+    id: string
     name: string
     business_type: string
     location: {
@@ -28,7 +36,9 @@ interface BusinessData {
     business_phone_number: string
     tenant_url: string
     avatar_url?: string | null
+    cover_url?: string | null
   }
+  photos: Photo[]
   services: Service[]
 }
 
@@ -104,9 +114,15 @@ export default async function Page({
     )
   }
 
-  const { business, services } = businessData
+  const { business, photos, services } = businessData
 
   return <div>
-    <TenantPage business={business} services={services} />
+    <TenantPage
+      business={business}
+      services={services}
+      photos={photos || []}
+      tenantSlug={tenantSlug}
+      businessId={business.id}
+    />
   </div>
 }
