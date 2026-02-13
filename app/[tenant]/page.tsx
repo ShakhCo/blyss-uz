@@ -1,5 +1,6 @@
 import { getTenant } from '@/lib/tenant'
 import { signedFetch } from '@/lib/api'
+import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { TenantPage } from './TenantPage'
 
@@ -121,27 +122,13 @@ export default async function Page({
   const tenant = await getTenant()
   const businessData = await getBusinessData(tenantSlug)
 
-  // Verify the request is actually from a subdomain
+  // Redirect to homepage if not accessed via subdomain or business not found
   if (!tenant.isTenant || tenant.slug !== tenantSlug) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-stone-100">
-        <div className="text-center px-4">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Invalid Tenant</h1>
-          <p className="text-stone-600">This page must be accessed via a subdomain.</p>
-        </div>
-      </div>
-    )
+    redirect('/')
   }
 
   if (!businessData) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-stone-100">
-        <div className="text-center px-4">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">{tenantSlug}</h1>
-          <p className="text-stone-600">Unable to load business information.</p>
-        </div>
-      </div>
-    )
+    redirect('/')
   }
 
   const { business, photos, services } = businessData
