@@ -168,7 +168,6 @@ export async function verifyOtp(phoneNumber: string, otpCode: number) {
       maxAge: 30 * 24 * 60 * 60, // 30 days
       path: '/',
     })
-
     return { success: true as const, user_id: data.user_id, phone_number: data.phone_number }
   } catch (error) {
     console.error('[verifyOtp] exception:', error)
@@ -228,6 +227,15 @@ export async function getAuthStatus() {
     return { authenticated: !!accessToken }
   } catch {
     return { authenticated: false }
+  }
+}
+
+export async function getSavedPhone() {
+  try {
+    const cookieStore = await cookies()
+    return cookieStore.get('blyss_phone')?.value || null
+  } catch {
+    return null
   }
 }
 

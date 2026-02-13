@@ -1,9 +1,10 @@
+import { redirect } from 'next/navigation'
 import { getTenant } from '@/lib/tenant'
 import { signedFetch } from '@/lib/api'
 import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
 import { BookingPage } from './BookingPage'
-import { getBookingIntent } from '../actions'
+import { getBookingIntent, getSavedPhone } from '../actions'
 
 interface MultilingualText {
   uz: string
@@ -65,11 +66,7 @@ export default async function Page({
 
   const intent = await getBookingIntent()
   if (!intent) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <p className="text-zinc-500">No booking selected. Please go back and select services.</p>
-      </div>
-    )
+    redirect(`/${locale}/${tenantSlug}`)
   }
 
   const { businessId, serviceIds } = intent
@@ -86,6 +83,7 @@ export default async function Page({
   const allServices: Service[] = businessData.services || []
   const selectedServices = allServices.filter((s: Service) => serviceIds.includes(s.id))
   const employees: Employee[] = businessData.employees || []
+  const savedPhone = await getSavedPhone()
 
   if (selectedServices.length === 0) {
     return (
@@ -105,6 +103,7 @@ export default async function Page({
       employees={employees}
       tenantSlug={tenantSlug}
       locale={locale}
+      savedPhone={savedPhone}
     />
   )
 }

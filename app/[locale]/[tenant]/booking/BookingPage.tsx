@@ -77,6 +77,7 @@ interface BookingPageProps {
   employees: Employee[];
   tenantSlug: string;
   locale: Locale;
+  savedPhone: string | null;
 }
 
 type Step = 'date' | 'time' | 'services' | 'phone' | 'confirm' | 'success';
@@ -207,7 +208,41 @@ function generateNext30Days(): Date[] {
   return days;
 }
 
-export function BookingPage({ businessId, businessName, businessPhone, services, allServices, tenantSlug, locale }: BookingPageProps) {
+// Session storage helpers for surviving Next.js revalidation remounts
+const BOOKING_STATE_KEY = 'blyss_booking_state';
+
+interface SavedBookingState {
+  step: Step;
+  selectedDate: string;
+  availableSlots: number[];
+  selectedTime: number | null;
+  selectedServiceIds: string[];
+  serviceEmployees: ServiceSlotData[];
+  selectedEmployees: Record<string, string | null>;
+  isAuthenticated: boolean;
+  phoneNumber: string;
+  businessId: string;
+}
+
+function loadBookingState(businessId: string): SavedBookingState | null {
+  try {
+    const raw = sessionStorage.getItem(BOOKING_STATE_KEY);
+    if (!raw) return null;
+    const state = JSON.parse(raw) as SavedBookingState;
+    if (state.businessId !== businessId) return null;
+    return state;
+  } catch { return null; }
+}
+
+function saveBookingState(state: SavedBookingState) {
+  try { sessionStorage.setItem(BOOKING_STATE_KEY, JSON.stringify(state)); } catch {}
+}
+
+function clearBookingState() {
+  try { sessionStorage.removeItem(BOOKING_STATE_KEY); } catch {}
+}
+
+export function BookingPage({ businessId, businessName, businessPhone, services, allServices, tenantSlug, locale, savedPhone }: BookingPageProps) {
   const router = useRouter();
   const t = UI[locale];
 
@@ -219,7 +254,7 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
   const [serviceEmployees, setServiceEmployees] = useState<ServiceSlotData[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<Record<string, string | null>>({});
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(savedPhone || '');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpDeliveryMethod, setOtpDeliveryMethod] = useState<'sms' | 'telegram' | null>(null);
@@ -230,11 +265,50 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
   const [showEmployeeSheet, setShowEmployeeSheet] = useState(false);
   const [showAddServiceSheet, setShowAddServiceSheet] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const restoredRef = useRef(false);
 
   const dateScrollRef = useRef<HTMLDivElement>(null);
   const cooldownRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const isPopStateRef = useRef(false);
   const dates = generateNext30Days();
+
+  // Restore state from sessionStorage on mount (survives Next.js revalidation remounts)
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    const saved = loadBookingState(businessId);
+    if (saved && saved.step !== 'date') {
+      setStep(saved.step);
+      setSelectedDate(saved.selectedDate);
+      setAvailableSlots(saved.availableSlots);
+      setSelectedTime(saved.selectedTime);
+      setSelectedServiceIds(saved.selectedServiceIds);
+      setServiceEmployees(saved.serviceEmployees);
+      setSelectedEmployees(saved.selectedEmployees);
+      setIsAuthenticated(saved.isAuthenticated);
+      if (saved.phoneNumber) setPhoneNumber(saved.phoneNumber);
+    }
+  }, [businessId]);
+
+  // Save state to sessionStorage on step changes
+  useEffect(() => {
+    if (step === 'success') {
+      clearBookingState();
+      return;
+    }
+    saveBookingState({
+      step,
+      selectedDate,
+      availableSlots,
+      selectedTime,
+      selectedServiceIds,
+      serviceEmployees,
+      selectedEmployees,
+      isAuthenticated,
+      phoneNumber,
+      businessId,
+    });
+  }, [step, selectedDate, availableSlots, selectedTime, selectedServiceIds, serviceEmployees, selectedEmployees, isAuthenticated, phoneNumber, businessId]);
 
   const validSteps: Step[] = ['date', 'time', 'services', 'phone', 'confirm', 'success'];
 
@@ -498,6 +572,11 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
     try {
       const result = await verifyOtp(phoneNumber, parseInt(otpCode));
       if (result.success) {
+        // Save phone in cookie for future pre-fill (client-side to avoid server action revalidation)
+        const isProduction = window.location.hostname.endsWith('.blyss.uz');
+        const domain = isProduction ? '; domain=.blyss.uz' : '';
+        const secure = isProduction ? '; Secure' : '';
+        document.cookie = `blyss_phone=${phoneNumber}; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Strict${domain}${secure}`;
         setIsAuthenticated(true);
         setStep('confirm');
       } else {
