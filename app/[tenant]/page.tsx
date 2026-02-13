@@ -72,13 +72,43 @@ export async function generateMetadata({
 
   if (!businessData) {
     return {
-      title: 'Business Not Found',
+      title: 'Business Not Found | Blyss',
+      robots: { index: false, follow: false },
     }
   }
 
+  const { business } = businessData
+  const title = `${business.name} — Book Online | Blyss`
+  const description = `Book beauty & wellness services at ${business.name} in Uzbekistan. View prices, services, and book your appointment online via Blyss.`
+  const url = `https://${business.tenant_url}.blyss.uz`
+  const image = business.cover_url || business.avatar_url || 'https://blyss.uz/og-image.png'
+
   return {
-    title: businessData.business.name,
-    description: `Book services at ${businessData.business.name}`,
+    title,
+    description,
+    openGraph: {
+      type: 'website',
+      url,
+      title,
+      description,
+      siteName: 'Blyss',
+      locale: 'en_US',
+      alternateLocale: ['ru_RU', 'uz_UZ'],
+      images: [{ url: image, width: 1200, height: 630, alt: business.name }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [image],
+    },
+    alternates: {
+      canonical: url,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
   }
 }
 
@@ -116,7 +146,55 @@ export default async function Page({
 
   const { business, photos, services } = businessData
 
+  const businessJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'HealthAndBeautyBusiness',
+    name: business.name,
+    url: `https://${business.tenant_url}.blyss.uz`,
+    telephone: business.business_phone_number,
+    ...(business.avatar_url && { image: business.avatar_url }),
+    ...(business.location?.lat && business.location?.lng && {
+      geo: {
+        '@type': 'GeoCoordinates',
+        latitude: business.location.lat,
+        longitude: business.location.lng,
+      },
+    }),
+    address: {
+      '@type': 'PostalAddress',
+      addressCountry: 'UZ',
+    },
+    ...(business.working_hours && {
+      openingHoursSpecification: Object.entries(business.working_hours)
+        .filter(([, h]) => h.is_open)
+        .map(([day, h]) => ({
+          '@type': 'OpeningHoursSpecification',
+          dayOfWeek: day.charAt(0).toUpperCase() + day.slice(1),
+          opens: `${String(Math.floor(h.start / 60)).padStart(2, '0')}:${String(h.start % 60).padStart(2, '0')}`,
+          closes: `${String(Math.floor(h.end / 60)).padStart(2, '0')}:${String(h.end % 60).padStart(2, '0')}`,
+        })),
+    }),
+    hasOfferCatalog: {
+      '@type': 'OfferCatalog',
+      name: 'Services',
+      itemListElement: services.slice(0, 20).map((s) => ({
+        '@type': 'Offer',
+        itemOffered: {
+          '@type': 'Service',
+          name: s.name.uz || s.name.ru,
+          ...(s.description?.uz && { description: s.description.uz }),
+        },
+        price: s.price,
+        priceCurrency: 'UZS',
+      })),
+    },
+  }
+
   return <div>
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(businessJsonLd) }}
+    />
     <TenantPage
       business={business}
       services={services}

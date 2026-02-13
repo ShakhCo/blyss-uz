@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
 import { HeroSection } from "./components/hero/HeroSection";
@@ -15,9 +16,50 @@ import {
   trending,
 } from "../data/venues";
 
+export const metadata: Metadata = {
+  title: 'Blyss — Book Beauty & Wellness Services in Uzbekistan',
+  description:
+    'Discover and book top-rated salons, barbers, spas and wellness studios in Uzbekistan. No app needed — open in Telegram.',
+};
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Blyss',
+  url: 'https://blyss.uz',
+  description:
+    'Online booking platform for beauty and wellness services in Uzbekistan. Book salons, barbers, spas, and wellness studios.',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web, Telegram',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'UZS',
+    description: 'Free for customers to book appointments',
+  },
+  areaServed: {
+    '@type': 'Country',
+    name: 'Uzbekistan',
+  },
+  provider: {
+    '@type': 'Organization',
+    name: 'Blyss',
+    url: 'https://blyss.uz',
+    logo: 'https://blyss.uz/icon-512.png',
+    sameAs: [
+      'https://t.me/blyssuz',
+    ],
+  },
+  inLanguage: ['en', 'ru', 'uz'],
+};
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-white text-black">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <Navbar />
 
       <main>
