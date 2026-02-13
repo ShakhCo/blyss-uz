@@ -108,19 +108,19 @@ export async function sendOtp(phoneNumber: string) {
       data = JSON.parse(responseText)
     } catch {
       console.error('[sendOtp] failed to parse response as JSON:', responseText)
-      return { success: false, error: `Server returned ${response.status}: ${responseText.slice(0, 200)}` }
+      return { success: false as const, error: `Server returned ${response.status}: ${responseText.slice(0, 200)}` }
     }
 
     if (!response.ok) {
       console.error('[sendOtp] API error:', { status: response.status, data })
-      return { success: false, error: data.error as string, error_code: data.error_code as string, wait_seconds: data.wait_seconds as number }
+      return { success: false as const, error: data.error as string, error_code: data.error_code as string, wait_seconds: data.wait_seconds as number }
     }
 
     console.log('[sendOtp] success:', data)
-    return { success: true, ...data }
+    return { success: true as const, delivery_method: (data.delivery_method as string) || 'sms' }
   } catch (error) {
     console.error('[sendOtp] exception:', error)
-    return { success: false, error: 'Failed to send OTP' }
+    return { success: false as const, error: 'Failed to send OTP' }
   }
 }
 
@@ -143,12 +143,12 @@ export async function verifyOtp(phoneNumber: string, otpCode: number) {
       data = JSON.parse(responseText)
     } catch {
       console.error('[verifyOtp] failed to parse response as JSON:', responseText)
-      return { success: false, error: `Server returned ${response.status}: ${responseText.slice(0, 200)}` }
+      return { success: false as const, error: `Server returned ${response.status}: ${responseText.slice(0, 200)}` }
     }
 
     if (!response.ok) {
       console.error('[verifyOtp] API error:', { status: response.status, data })
-      return { success: false, error: data.error as string, error_code: data.error_code as string }
+      return { success: false as const, error: data.error as string, error_code: data.error_code as string }
     }
 
     console.log('[verifyOtp] success, storing tokens')
@@ -169,10 +169,10 @@ export async function verifyOtp(phoneNumber: string, otpCode: number) {
       path: '/',
     })
 
-    return { success: true, user_id: data.user_id, phone_number: data.phone_number }
+    return { success: true as const, user_id: data.user_id, phone_number: data.phone_number }
   } catch (error) {
     console.error('[verifyOtp] exception:', error)
-    return { success: false, error: 'Failed to verify OTP' }
+    return { success: false as const, error: 'Failed to verify OTP' }
   }
 }
 
@@ -188,7 +188,7 @@ export async function createBooking(
     const accessToken = cookieStore.get('blyss_access_token')?.value
 
     if (!accessToken) {
-      return { success: false, error: 'Not authenticated', error_code: 'NO_TOKEN' }
+      return { success: false as const, error: 'Not authenticated', error_code: 'NO_TOKEN' }
     }
 
     const body = JSON.stringify({
@@ -211,13 +211,13 @@ export async function createBooking(
 
     const data = await response.json()
     if (!response.ok) {
-      return { success: false, error: data.error, error_code: data.error_code }
+      return { success: false as const, error: data.error, error_code: data.error_code }
     }
 
-    return { success: true, booking: data }
+    return { success: true as const, booking: data }
   } catch (error) {
     console.error('[createBooking] error:', error)
-    return { success: false, error: 'Failed to create booking' }
+    return { success: false as const, error: 'Failed to create booking' }
   }
 }
 
