@@ -8,8 +8,6 @@ import {
   Clock,
   Check,
   User,
-  Phone,
-  Calendar,
   Loader2,
   Plus,
   X,
@@ -18,11 +16,12 @@ import {
 import {
   getAvailableSlots,
   getSlotEmployees,
-  sendOtp,
-  verifyOtp,
   createBooking,
   getAuthStatus,
 } from '../actions';
+import { LoginModal } from '@/app/components/auth/LoginModal';
+
+// ─── Interfaces ───
 
 interface MultilingualText {
   uz: string;
@@ -80,102 +79,66 @@ interface BookingPageProps {
   savedUser: { phone: string; first_name: string; last_name: string } | null;
 }
 
-type Step = 'date' | 'time' | 'services' | 'phone' | 'confirm' | 'success';
+// ─── Translations ───
 
 const UI: Record<Locale, Record<string, string>> = {
   uz: {
-    back: 'Orqaga',
+    bookAppointment: 'Uchrashuv band qilish',
     selectDate: 'Sanani tanlang',
     selectTime: 'Vaqtni tanlang',
-    servicesReview: 'Xizmatlar',
-    phoneVerify: 'Telefon tasdiqlash',
-    confirm: 'Tasdiqlash',
-    success: 'Muvaffaqiyat!',
+    yourServices: 'Xizmatlar',
     noSlots: 'Bu kunga bo\'sh vaqt yo\'q',
     loading: 'Yuklanmoqda...',
-    next: 'Davom etish',
-    bookNow: 'Band qilish',
+    confirmBooking: 'Band qilish',
     total: 'Jami',
     sum: "so'm",
     minute: 'daq',
     hour: 'soat',
-    enterPhone: 'Telefon raqamingizni kiriting',
-    phoneFormat: '998XXXXXXXXX',
-    sendCode: 'Kod yuborish',
-    enterCode: 'Kodni kiriting',
-    verifyCode: 'Tasdiqlash',
-    codeSent: 'Kod yuborildi',
-    codeSentViaSms: 'Kod SMS orqali yuborildi',
-    codeSentViaTelegram: 'Kod Telegram orqali yuborildi',
-    waitSeconds: '{{s}} soniya kuting',
-    bookingConfirmed: 'Buyurtmangiz tasdiqlandi!',
-    bookingDetails: 'Tafsilotlar',
-    backToBusiness: 'Biznesga qaytish',
-    date: 'Sana',
-    time: 'Vaqt',
-    service: 'Xizmat',
-    employee: 'Xodim',
-    price: 'Narx',
     anySpecialist: 'Har qanday mutaxassis',
     today: 'Bugun',
     tomorrow: 'Ertaga',
     errorOccurred: 'Xatolik yuz berdi',
-    tryAgain: 'Qayta urinib ko\'ring',
     alreadyBooked: 'Siz allaqachon bu vaqtda band qilgansiz',
-    servicesSelected: 'xizmat tanlangan',
     addService: 'Xizmat qo\'shish',
     change: 'O\'zgartirish',
-    remove: 'O\'chirish',
     selectSpecialist: 'Mutaxassisni tanlang',
+    notes: 'Izoh (ixtiyoriy)',
+    notesPlaceholder: 'Qo\'shimcha ma\'lumot...',
+    bookingConfirmed: 'Buyurtmangiz tasdiqlandi!',
+    backToBusiness: 'Orqaga qaytish',
+    viewBookings: 'Buyurtmalarim',
     addMoreServices: 'Xizmat qo\'shish',
   },
   ru: {
-    back: 'Назад',
+    bookAppointment: 'Записаться',
     selectDate: 'Выберите дату',
     selectTime: 'Выберите время',
-    servicesReview: 'Услуги',
-    phoneVerify: 'Подтвердите телефон',
-    confirm: 'Подтверждение',
-    success: 'Успешно!',
-    noSlots: 'Нет доступного времени на этот день',
+    yourServices: 'Услуги',
+    noSlots: 'Нет доступного времени',
     loading: 'Загрузка...',
-    next: 'Продолжить',
-    bookNow: 'Забронировать',
+    confirmBooking: 'Записаться',
     total: 'Итого',
     sum: 'сум',
     minute: 'мин',
     hour: 'ч',
-    enterPhone: 'Введите номер телефона',
-    phoneFormat: '998XXXXXXXXX',
-    sendCode: 'Отправить код',
-    enterCode: 'Введите код',
-    verifyCode: 'Подтвердить',
-    codeSent: 'Код отправлен',
-    codeSentViaSms: 'Код отправлен по SMS',
-    codeSentViaTelegram: 'Код отправлен через Telegram',
-    waitSeconds: 'Подождите {{s}} сек',
-    bookingConfirmed: 'Бронирование подтверждено!',
-    bookingDetails: 'Детали',
-    backToBusiness: 'Вернуться',
-    date: 'Дата',
-    time: 'Время',
-    service: 'Услуга',
-    employee: 'Специалист',
-    price: 'Цена',
     anySpecialist: 'Любой специалист',
     today: 'Сегодня',
     tomorrow: 'Завтра',
     errorOccurred: 'Произошла ошибка',
-    tryAgain: 'Попробуйте снова',
     alreadyBooked: 'У вас уже есть бронь на это время',
-    servicesSelected: 'услуг выбрано',
     addService: 'Добавить услугу',
     change: 'Изменить',
-    remove: 'Удалить',
     selectSpecialist: 'Выберите специалиста',
+    notes: 'Комментарий (необязательно)',
+    notesPlaceholder: 'Дополнительная информация...',
+    bookingConfirmed: 'Запись подтверждена!',
+    backToBusiness: 'Вернуться',
+    viewBookings: 'Мои записи',
     addMoreServices: 'Добавить услугу',
   },
 };
+
+// ─── Constants ───
 
 const DAY_NAMES_SHORT: Record<Locale, string[]> = {
   uz: ['Yak', 'Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan'],
@@ -186,6 +149,8 @@ const MONTH_NAMES: Record<Locale, string[]> = {
   uz: ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'],
   ru: ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'],
 };
+
+// ─── Helpers ───
 
 function secondsToTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -208,143 +173,46 @@ function generateNext30Days(): Date[] {
   return days;
 }
 
-// Session storage helpers for surviving Next.js revalidation remounts
-const BOOKING_STATE_KEY = 'blyss_booking_state';
+// ─── Component ───
 
-interface SavedBookingState {
-  step: Step;
-  selectedDate: string;
-  availableSlots: number[];
-  selectedTime: number | null;
-  selectedServiceIds: string[];
-  serviceEmployees: ServiceSlotData[];
-  selectedEmployees: Record<string, string | null>;
-  isAuthenticated: boolean;
-  phoneNumber: string;
-  businessId: string;
-}
-
-function loadBookingState(businessId: string): SavedBookingState | null {
-  try {
-    const raw = sessionStorage.getItem(BOOKING_STATE_KEY);
-    if (!raw) return null;
-    const state = JSON.parse(raw) as SavedBookingState;
-    if (state.businessId !== businessId) return null;
-    return state;
-  } catch { return null; }
-}
-
-function saveBookingState(state: SavedBookingState) {
-  try { sessionStorage.setItem(BOOKING_STATE_KEY, JSON.stringify(state)); } catch {}
-}
-
-function clearBookingState() {
-  try { sessionStorage.removeItem(BOOKING_STATE_KEY); } catch {}
-}
-
-export function BookingPage({ businessId, businessName, businessPhone, services, allServices, tenantSlug, locale, savedUser }: BookingPageProps) {
+export function BookingPage({
+  businessId,
+  businessName,
+  businessPhone,
+  services,
+  allServices,
+  employees,
+  tenantSlug,
+  locale,
+  savedUser,
+}: BookingPageProps) {
   const router = useRouter();
   const t = UI[locale];
 
-  const [step, setStep] = useState<Step>('date');
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  // ─── State ───
+
+  const [selectedDate, setSelectedDate] = useState('');
   const [availableSlots, setAvailableSlots] = useState<number[]>([]);
   const [selectedTime, setSelectedTime] = useState<number | null>(null);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>(services.map(s => s.id));
   const [serviceEmployees, setServiceEmployees] = useState<ServiceSlotData[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<Record<string, string | null>>({});
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState(savedUser?.phone || '');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpDeliveryMethod, setOtpDeliveryMethod] = useState<'sms' | 'telegram' | null>(null);
-  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [slotsLoading, setSlotsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [bookingResult, setBookingResult] = useState<Record<string, unknown> | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [showEmployeeSheet, setShowEmployeeSheet] = useState(false);
   const [showAddServiceSheet, setShowAddServiceSheet] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
-  const restoredRef = useRef(false);
+  const [bookingResult, setBookingResult] = useState<Record<string, unknown> | null>(null);
 
-  const dateScrollRef = useRef<HTMLDivElement>(null);
-  const cooldownRef = useRef<ReturnType<typeof setInterval>>(undefined);
-  const isPopStateRef = useRef(false);
   const dates = generateNext30Days();
+  const timeSectionRef = useRef<HTMLDivElement>(null);
+  const servicesSectionRef = useRef<HTMLDivElement>(null);
 
-  // Restore state from sessionStorage on mount (survives Next.js revalidation remounts)
-  useEffect(() => {
-    if (restoredRef.current) return;
-    restoredRef.current = true;
-    const saved = loadBookingState(businessId);
-    if (saved && saved.step !== 'date') {
-      setStep(saved.step);
-      setSelectedDate(saved.selectedDate);
-      setAvailableSlots(saved.availableSlots);
-      setSelectedTime(saved.selectedTime);
-      setSelectedServiceIds(saved.selectedServiceIds);
-      setServiceEmployees(saved.serviceEmployees);
-      setSelectedEmployees(saved.selectedEmployees);
-      setIsAuthenticated(saved.isAuthenticated);
-      if (saved.phoneNumber) setPhoneNumber(saved.phoneNumber);
-    }
-  }, [businessId]);
-
-  // Save state to sessionStorage on step changes
-  useEffect(() => {
-    if (step === 'success') {
-      clearBookingState();
-      return;
-    }
-    saveBookingState({
-      step,
-      selectedDate,
-      availableSlots,
-      selectedTime,
-      selectedServiceIds,
-      serviceEmployees,
-      selectedEmployees,
-      isAuthenticated,
-      phoneNumber,
-      businessId,
-    });
-  }, [step, selectedDate, availableSlots, selectedTime, selectedServiceIds, serviceEmployees, selectedEmployees, isAuthenticated, phoneNumber, businessId]);
-
-  const validSteps: Step[] = ['date', 'time', 'services', 'phone', 'confirm', 'success'];
-
-  // Sync step → URL (pushState when step changes programmatically)
-  useEffect(() => {
-    if (isPopStateRef.current) {
-      isPopStateRef.current = false;
-      return;
-    }
-    const url = new URL(window.location.href);
-    url.searchParams.set('step', step);
-    if (step === 'date') {
-      window.history.replaceState({ step }, '', url.toString());
-    } else {
-      window.history.pushState({ step }, '', url.toString());
-    }
-  }, [step]);
-
-  // Listen for browser back/forward → sync URL to step
-  useEffect(() => {
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      const urlStep = params.get('step') as Step;
-      if (urlStep && validSteps.includes(urlStep)) {
-        isPopStateRef.current = true;
-        setError('');
-        setStep(urlStep);
-      } else {
-        // No step param → user went back past the booking page
-        router.push(`/${locale}`);
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locale, router]);
+  // ─── Derived ───
 
   const currentServices = allServices.filter(s => selectedServiceIds.includes(s.id));
   const remainingServices = allServices.filter(s => !selectedServiceIds.includes(s.id));
@@ -364,95 +232,61 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
     return mins > 0 ? `${hours} ${t.hour} ${mins} ${t.minute}` : `${hours} ${t.hour}`;
   };
 
-  // Lock body scroll when sheets are open
+  const getServicePrice = (serviceId: string) => {
+    const svcData = serviceEmployees.find(s => s.service_id === serviceId);
+    const emp = svcData?.employees?.find(e => e.id === selectedEmployees[serviceId]);
+    if (emp) return emp.price;
+    return allServices.find(s => s.id === serviceId)?.price ?? 0;
+  };
+
+  const getServiceDuration = (serviceId: string) => {
+    const svcData = serviceEmployees.find(s => s.service_id === serviceId);
+    const emp = svcData?.employees?.find(e => e.id === selectedEmployees[serviceId]);
+    if (emp) return emp.duration_minutes;
+    return allServices.find(s => s.id === serviceId)?.duration_minutes ?? 0;
+  };
+
+  const totalPrice = selectedServiceIds.reduce((sum, sid) => sum + getServicePrice(sid), 0);
+
+  // ─── Lock body scroll when sheets or modals are open ───
+
   useEffect(() => {
-    const isOpen = showEmployeeSheet || showAddServiceSheet;
+    const isOpen = showEmployeeSheet || showAddServiceSheet || showLoginModal;
     document.body.style.overflow = isOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [showEmployeeSheet, showAddServiceSheet]);
+  }, [showEmployeeSheet, showAddServiceSheet, showLoginModal]);
 
-  // Check auth on mount
-  useEffect(() => {
-    getAuthStatus().then(res => setIsAuthenticated(res.authenticated));
-  }, []);
+  // ─── Scroll helpers ───
 
-  // OTP cooldown timer
-  useEffect(() => {
-    if (otpCooldown > 0) {
-      cooldownRef.current = setInterval(() => {
-        setOtpCooldown(prev => {
-          if (prev <= 1) {
-            clearInterval(cooldownRef.current);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(cooldownRef.current);
-    }
-  }, [otpCooldown]);
-
-  const fetchSlotsAndEmployees = async (serviceIds: string[], date: string, time: number | null) => {
-    setLoading(true);
-    try {
-      const slotsResult = await getAvailableSlots(businessId, date, serviceIds);
-      const newSlots = slotsResult?.available_start_times || [];
-      setAvailableSlots(newSlots);
-
-      // If the currently selected time is no longer available, bump back to time step
-      if (time !== null && !newSlots.includes(time)) {
-        setSelectedTime(null);
-        setStep('time');
-        return false;
-      }
-
-      // If we have a valid time, fetch employees too
-      if (time !== null) {
-        const empResult = await getSlotEmployees(businessId, date, serviceIds, time);
-        if (empResult?.services) {
-          setServiceEmployees(empResult.services);
-          // Auto-select first employee for new services, keep existing selections
-          const defaults: Record<string, string | null> = {};
-          for (const svc of empResult.services) {
-            if (selectedEmployees[svc.service_id] !== undefined) {
-              // Check if previously selected employee is still available
-              const prevEmp = selectedEmployees[svc.service_id];
-              const stillAvailable = svc.employees?.some((e: SlotEmployee) => e.id === prevEmp);
-              defaults[svc.service_id] = stillAvailable ? prevEmp : (svc.employees?.[0]?.id || null);
-            } else {
-              defaults[svc.service_id] = svc.employees?.[0]?.id || null;
-            }
-          }
-          setSelectedEmployees(defaults);
-        }
-      }
-      return true;
-    } catch {
-      setError(t.errorOccurred);
-      return false;
-    } finally {
-      setLoading(false);
-    }
+  const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
+    setTimeout(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
+
+  // ─── Handlers ───
 
   const handleDateSelect = async (dateStr: string) => {
     setSelectedDate(dateStr);
     setSelectedTime(null);
+    setServiceEmployees([]);
+    setSelectedEmployees({});
     setAvailableSlots([]);
     setError('');
-    setLoading(true);
+    setSlotsLoading(true);
 
     try {
       const result = await getAvailableSlots(businessId, dateStr, selectedServiceIds);
       if (result?.available_start_times) {
         setAvailableSlots(result.available_start_times);
       }
-      setStep('time');
     } catch {
       setError(t.errorOccurred);
     } finally {
-      setLoading(false);
+      setSlotsLoading(false);
     }
+
+    scrollToSection(timeSectionRef);
   };
 
   const handleTimeSelect = async (time: number) => {
@@ -474,12 +308,13 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
         }
         setSelectedEmployees(defaults);
       }
-      setStep('services');
     } catch {
       setError(t.errorOccurred);
     } finally {
       setLoading(false);
     }
+
+    scrollToSection(servicesSectionRef);
   };
 
   const handleAddService = async (serviceId: string) => {
@@ -487,10 +322,41 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
     setSelectedServiceIds(newIds);
     setShowAddServiceSheet(false);
     setError('');
+    setLoading(true);
 
-    const ok = await fetchSlotsAndEmployees(newIds, selectedDate, selectedTime);
-    if (ok && step === 'services') {
-      // Stay on services step, data is updated
+    try {
+      // Re-fetch slots for updated service list
+      const slotsResult = await getAvailableSlots(businessId, selectedDate, newIds);
+      const newSlots = slotsResult?.available_start_times || [];
+      setAvailableSlots(newSlots);
+
+      // If selected time is no longer valid, clear it
+      if (selectedTime !== null && !newSlots.includes(selectedTime)) {
+        setSelectedTime(null);
+        setServiceEmployees([]);
+        setSelectedEmployees({});
+      } else if (selectedTime !== null) {
+        // Re-fetch employees
+        const empResult = await getSlotEmployees(businessId, selectedDate, newIds, selectedTime);
+        if (empResult?.services) {
+          setServiceEmployees(empResult.services);
+          const defaults: Record<string, string | null> = {};
+          for (const svc of empResult.services) {
+            if (selectedEmployees[svc.service_id] !== undefined) {
+              const prevEmp = selectedEmployees[svc.service_id];
+              const stillAvailable = svc.employees?.some((e: SlotEmployee) => e.id === prevEmp);
+              defaults[svc.service_id] = stillAvailable ? prevEmp : (svc.employees?.[0]?.id || null);
+            } else {
+              defaults[svc.service_id] = svc.employees?.[0]?.id || null;
+            }
+          }
+          setSelectedEmployees(defaults);
+        }
+      }
+    } catch {
+      setError(t.errorOccurred);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -507,13 +373,23 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
       return next;
     });
 
-    // Re-fetch employees for updated service list
+    // Re-fetch if we have a selected time
     if (selectedTime !== null) {
       setLoading(true);
       try {
-        const empResult = await getSlotEmployees(businessId, selectedDate, newIds, selectedTime);
-        if (empResult?.services) {
-          setServiceEmployees(empResult.services);
+        const slotsResult = await getAvailableSlots(businessId, selectedDate, newIds);
+        const newSlots = slotsResult?.available_start_times || [];
+        setAvailableSlots(newSlots);
+
+        if (!newSlots.includes(selectedTime)) {
+          setSelectedTime(null);
+          setServiceEmployees([]);
+          setSelectedEmployees({});
+        } else {
+          const empResult = await getSlotEmployees(businessId, selectedDate, newIds, selectedTime);
+          if (empResult?.services) {
+            setServiceEmployees(empResult.services);
+          }
         }
       } catch {
         setError(t.errorOccurred);
@@ -534,57 +410,7 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
     setEditingServiceId(null);
   };
 
-  const handleServicesConfirm = () => {
-    if (isAuthenticated) {
-      setStep('confirm');
-    } else {
-      setStep('phone');
-    }
-  };
-
-  const handleSendOtp = async () => {
-    if (phoneNumber.length !== 12) return;
-    setError('');
-    setLoading(true);
-
-    try {
-      const result = await sendOtp(phoneNumber);
-      if (result.success) {
-        setOtpSent(true);
-        setOtpDeliveryMethod((result.delivery_method as 'sms' | 'telegram') || 'sms');
-        setOtpCooldown(60);
-      } else {
-        setError(result.error || t.errorOccurred);
-        if (result.wait_seconds) setOtpCooldown(result.wait_seconds);
-      }
-    } catch {
-      setError(t.errorOccurred);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otpCode.length !== 5) return;
-    setError('');
-    setLoading(true);
-
-    try {
-      const result = await verifyOtp(phoneNumber, parseInt(otpCode));
-      if (result.success) {
-        setIsAuthenticated(true);
-        setStep('confirm');
-      } else {
-        setError(result.error || t.errorOccurred);
-      }
-    } catch {
-      setError(t.errorOccurred);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleConfirmBooking = async () => {
+  const submitBooking = useCallback(async () => {
     if (!selectedTime) return;
     setError('');
     setLoading(true);
@@ -595,11 +421,17 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
         employee_id: selectedEmployees[sid] || null,
       }));
 
-      const result = await createBooking(businessId, selectedDate, selectedTime, bookingServices);
+      const result = await createBooking(
+        businessId,
+        selectedDate,
+        selectedTime,
+        bookingServices,
+        notes || undefined,
+      );
 
       if (result.success) {
         setBookingResult(result.booking as Record<string, unknown>);
-        setStep('success');
+        setShowSuccess(true);
       } else {
         if (result.error_code === 'USER_TIME_CONFLICT') {
           setError(t.alreadyBooked);
@@ -612,471 +444,348 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
     } finally {
       setLoading(false);
     }
+  }, [selectedTime, selectedServiceIds, selectedEmployees, businessId, selectedDate, notes, t]);
+
+  const handleConfirmBooking = async () => {
+    setError('');
+    try {
+      const authResult = await getAuthStatus();
+      if (authResult.authenticated) {
+        await submitBooking();
+      } else {
+        setShowLoginModal(true);
+      }
+    } catch {
+      setError(t.errorOccurred);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    setShowLoginModal(false);
+    submitBooking();
   };
 
   const goBack = () => {
-    setError('');
-    if (step === 'date') {
-      router.push(`/${locale}`);
-    } else {
-      window.history.back();
-    }
+    router.push(`/${locale}/${tenantSlug}`);
   };
 
-  const getStepTitle = () => {
-    switch (step) {
-      case 'date': return t.selectDate;
-      case 'time': return t.selectTime;
-      case 'services': return t.servicesReview;
-      case 'phone': return t.phoneVerify;
-      case 'confirm': return t.confirm;
-      case 'success': return t.success;
-    }
-  };
-
-  const stepOrder = ['date', 'time', 'services', 'phone', 'confirm'];
-  const currentStepIdx = stepOrder.indexOf(step);
-
-  // Compute total from employee prices (if available) or service base prices
-  const getServicePrice = (serviceId: string) => {
-    const svcData = serviceEmployees.find(s => s.service_id === serviceId);
-    const emp = svcData?.employees?.find(e => e.id === selectedEmployees[serviceId]);
-    if (emp) return emp.price;
-    return allServices.find(s => s.id === serviceId)?.price ?? 0;
-  };
-
-  const getServiceDuration = (serviceId: string) => {
-    const svcData = serviceEmployees.find(s => s.service_id === serviceId);
-    const emp = svcData?.employees?.find(e => e.id === selectedEmployees[serviceId]);
-    if (emp) return emp.duration_minutes;
-    return allServices.find(s => s.id === serviceId)?.duration_minutes ?? 0;
-  };
-
-  const totalPrice = selectedServiceIds.reduce((sum, sid) => sum + getServicePrice(sid), 0);
+  // ─── Render ───
 
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-900">
-      {/* Header */}
-      {step !== 'success' && (
-        <div className="sticky top-0 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 z-30">
-          <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
-            <button onClick={goBack} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
-              <ChevronLeft size={20} className="text-zinc-900 dark:text-zinc-100" />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{getStepTitle()}</h1>
-              <p className="text-xs text-zinc-500">{businessName}</p>
-            </div>
-          </div>
-          {/* Step progress */}
-          <div className="max-w-2xl mx-auto px-4 pb-2">
-            <div className="flex gap-1">
-              {stepOrder.map((s, i) => (
-                <div key={s} className={`h-1 flex-1 rounded-full ${i <= currentStepIdx ? 'bg-primary' : 'bg-zinc-200 dark:bg-zinc-700'}`} />
-              ))}
-            </div>
+    <div className="min-h-screen bg-white pb-4">
+      {/* ===== HEADER (sticky) ===== */}
+      <div className="sticky top-0 bg-white/80 backdrop-blur-lg z-30 border-b border-gray-100">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+          <button
+            onClick={goBack}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <ChevronLeft size={20} className="text-gray-900" />
+          </button>
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">{t.bookAppointment}</h1>
+            <p className="text-xs text-gray-500">{businessName}</p>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Error message */}
+      {/* ===== ERROR ===== */}
       {error && (
-        <div className="max-w-2xl mx-auto px-4 pt-3">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400">
+        <div className="max-w-2xl mx-auto px-4 pt-4">
+          <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 text-sm text-red-600">
             {error}
           </div>
         </div>
       )}
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      {/* ===== CALENDAR SECTION ===== */}
+      <section className="max-w-2xl mx-auto px-4 pt-6">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+          {t.selectDate}
+        </h2>
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+          {dates.map((date, idx) => {
+            const dateStr = formatDateYMD(date);
+            const isSelected = selectedDate === dateStr;
+            const isToday = idx === 0;
+            const isTomorrow = idx === 1;
+            const dayName = isToday
+              ? t.today
+              : isTomorrow
+                ? t.tomorrow
+                : DAY_NAMES_SHORT[locale][date.getDay()];
+            const monthName = MONTH_NAMES[locale][date.getMonth()];
 
-        {/* ===== DATE STEP ===== */}
-        {step === 'date' && (
-          <div>
-            {/* Services summary */}
-            <div className="mb-6 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">{currentServices.length} {t.servicesSelected}</p>
-              {currentServices.map(s => (
-                <div key={s.id} className="flex justify-between py-1">
-                  <span className="text-sm text-zinc-900 dark:text-zinc-100">{getText(s.name)}</span>
-                  <span className="text-sm text-zinc-500">{formatPrice(s.price)} {t.sum}</span>
-                </div>
-              ))}
-              <div className="flex justify-between pt-2 mt-2 border-t border-zinc-200 dark:border-zinc-700">
-                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{t.total}</span>
-                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  {formatPrice(currentServices.reduce((sum, s) => sum + s.price, 0))} {t.sum} &middot; {formatDuration(currentServices.reduce((sum, s) => sum + s.duration_minutes, 0))}
+            return (
+              <button
+                key={dateStr}
+                onClick={() => handleDateSelect(dateStr)}
+                className={`flex-shrink-0 flex flex-col items-center w-[4.5rem] py-3 rounded-2xl transition-all ${
+                  isSelected
+                    ? 'bg-[#088395] text-white shadow-lg shadow-[#088395]/25'
+                    : 'bg-gray-50 hover:bg-gray-100 text-gray-900'
+                }`}
+              >
+                <span
+                  className={`text-[10px] font-medium ${
+                    isSelected ? 'text-white/70' : 'text-gray-500'
+                  }`}
+                >
+                  {dayName}
                 </span>
-              </div>
+                <span className="text-xl font-bold mt-0.5">{date.getDate()}</span>
+                <span
+                  className={`text-[10px] ${isSelected ? 'text-white/70' : 'text-gray-500'}`}
+                >
+                  {monthName}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ===== TIME SLOTS SECTION ===== */}
+      {selectedDate && (
+        <section ref={timeSectionRef} className="max-w-2xl mx-auto px-4 pt-8">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            {t.selectTime}
+          </h2>
+
+          {slotsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 size={24} className="animate-spin text-[#088395]" />
+              <span className="ml-2 text-sm text-gray-500">{t.loading}</span>
             </div>
-
-            {/* Date strip */}
-            <div ref={dateScrollRef} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4">
-              {dates.map((date, idx) => {
-                const dateStr = formatDateYMD(date);
-                const isSelected = selectedDate === dateStr;
-                const isToday = idx === 0;
-                const isTomorrow = idx === 1;
-
+          ) : availableSlots.length === 0 ? (
+            <div className="text-center py-16">
+              <Clock size={40} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500 text-sm">{t.noSlots}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 gap-2">
+              {availableSlots.map(time => {
+                const isSelected = selectedTime === time;
                 return (
-                  <button
-                    key={dateStr}
-                    onClick={() => handleDateSelect(dateStr)}
-                    className={`flex-shrink-0 flex flex-col items-center w-16 py-3 rounded-xl transition-all ${isSelected
-                      ? 'bg-primary text-white'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                    }`}
-                  >
-                    <span className={`text-[10px] font-medium ${isSelected ? 'text-white/70' : 'text-zinc-500'}`}>
-                      {isToday ? t.today : isTomorrow ? t.tomorrow : DAY_NAMES_SHORT[locale][date.getDay()]}
-                    </span>
-                    <span className="text-xl font-bold mt-0.5">{date.getDate()}</span>
-                    <span className={`text-[10px] ${isSelected ? 'text-white/70' : 'text-zinc-500'}`}>
-                      {MONTH_NAMES[locale][date.getMonth()]}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ===== TIME STEP ===== */}
-        {step === 'time' && (
-          <div>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-              <Calendar size={14} className="inline mr-1" />
-              {selectedDate}
-            </p>
-
-            {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 size={24} className="animate-spin text-primary" />
-                <span className="ml-2 text-sm text-zinc-500">{t.loading}</span>
-              </div>
-            ) : availableSlots.length === 0 ? (
-              <div className="text-center py-20">
-                <Clock size={40} className="mx-auto text-zinc-300 dark:text-zinc-600 mb-3" />
-                <p className="text-zinc-500 text-sm">{t.noSlots}</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-4 gap-2">
-                {availableSlots.map(time => (
                   <button
                     key={time}
                     onClick={() => handleTimeSelect(time)}
-                    className={`py-3 rounded-xl text-sm font-medium transition-all ${selectedTime === time
-                      ? 'bg-primary text-white'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    className={`py-3 rounded-xl text-sm font-medium transition-all ${
+                      isSelected
+                        ? 'bg-[#088395] text-white shadow-md shadow-[#088395]/20'
+                        : 'bg-gray-50 hover:bg-gray-100 text-gray-900'
                     }`}
                   >
                     {secondsToTime(time)}
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ===== SERVICES REVIEW STEP ===== */}
-        {step === 'services' && (
-          <div>
-            {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 size={24} className="animate-spin text-primary" />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Date & time summary */}
-                <div className="flex items-center gap-3 p-3 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
-                  <Calendar size={16} className="text-primary" />
-                  <span className="text-sm text-zinc-900 dark:text-zinc-100">{selectedDate}</span>
-                  <span className="text-zinc-300 dark:text-zinc-600">&middot;</span>
-                  <Clock size={16} className="text-primary" />
-                  <span className="text-sm text-zinc-900 dark:text-zinc-100">{selectedTime !== null ? secondsToTime(selectedTime) : ''}</span>
-                </div>
-
-                {/* Service cards */}
-                {selectedServiceIds.map(serviceId => {
-                  const service = allServices.find(s => s.id === serviceId);
-                  if (!service) return null;
-
-                  const svcData = serviceEmployees.find(s => s.service_id === serviceId);
-                  const selectedEmpId = selectedEmployees[serviceId];
-                  const selectedEmp = svcData?.employees?.find(e => e.id === selectedEmpId);
-                  const empName = selectedEmp
-                    ? [selectedEmp.first_name, selectedEmp.last_name].filter(Boolean).join(' ')
-                    : t.anySpecialist;
-                  const price = selectedEmp?.price ?? service.price;
-                  const duration = selectedEmp?.duration_minutes ?? service.duration_minutes;
-
-                  return (
-                    <div key={serviceId} className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                            {getText(service.name)}
-                          </h4>
-                          <p className="text-xs text-zinc-500 mt-1">
-                            {formatDuration(duration)} &middot; {formatPrice(price)} {t.sum}
-                          </p>
-                        </div>
-                        {selectedServiceIds.length > 1 && (
-                          <button
-                            onClick={() => handleRemoveService(serviceId)}
-                            className="p-1.5 text-zinc-400 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Employee row */}
-                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-700">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
-                            <User size={14} className="text-zinc-500" />
-                          </div>
-                          <span className="text-sm text-zinc-700 dark:text-zinc-300">{empName}</span>
-                        </div>
-                        {svcData && svcData.employees && svcData.employees.length > 1 && (
-                          <button
-                            onClick={() => openEmployeeSheet(serviceId)}
-                            className="text-xs font-medium text-primary"
-                          >
-                            {t.change}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Add service button */}
-                {remainingServices.length > 0 && (
-                  <button
-                    onClick={() => setShowAddServiceSheet(true)}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 border-2 border-dashed border-zinc-300 dark:border-zinc-600 rounded-xl text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:border-primary hover:text-primary transition-colors"
-                  >
-                    <Plus size={16} />
-                    {t.addService}
-                  </button>
-                )}
-
-                {/* Total */}
-                <div className="flex justify-between items-center p-4 bg-primary/5 rounded-xl">
-                  <span className="text-base font-bold text-zinc-900 dark:text-zinc-100">{t.total}</span>
-                  <span className="text-base font-bold text-primary">
-                    {formatPrice(totalPrice)} {t.sum}
-                  </span>
-                </div>
-
-                {/* Continue button */}
-                <button
-                  onClick={handleServicesConfirm}
-                  className="w-full py-3.5 bg-primary text-white rounded-xl font-semibold text-sm"
-                >
-                  {t.next}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ===== PHONE VERIFICATION STEP ===== */}
-        {step === 'phone' && (
-          <div className="max-w-sm mx-auto">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <Phone size={28} className="text-primary" />
-              </div>
+                );
+              })}
             </div>
+          )}
+        </section>
+      )}
 
-            {!otpSent ? (
-              <>
-                <p className="text-center text-sm text-zinc-500 dark:text-zinc-400 mb-6">{t.enterPhone}</p>
-                <div className="relative mb-4">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-400">+</span>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                    placeholder={t.phoneFormat}
-                    className="w-full pl-8 pr-4 py-3.5 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-base text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-primary"
-                    autoFocus
-                  />
-                </div>
-                <button
-                  onClick={handleSendOtp}
-                  disabled={phoneNumber.length !== 12 || loading}
-                  className="w-full py-3.5 bg-primary text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {loading && <Loader2 size={16} className="animate-spin" />}
-                  {t.sendCode}
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="text-center text-sm text-zinc-500 dark:text-zinc-400 mb-2">
-                  {otpDeliveryMethod === 'telegram' ? t.codeSentViaTelegram : t.codeSentViaSms}
-                </p>
-                <p className="text-center text-xs text-zinc-400 mb-6">+{phoneNumber}</p>
-                <input
-                  type="text"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
-                  placeholder="00000"
-                  className="w-full text-center text-2xl tracking-[0.3em] py-4 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-primary mb-4"
-                  autoFocus
-                />
-                <button
-                  onClick={handleVerifyOtp}
-                  disabled={otpCode.length !== 5 || loading}
-                  className="w-full py-3.5 bg-primary text-white rounded-xl font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2 mb-3"
-                >
-                  {loading && <Loader2 size={16} className="animate-spin" />}
-                  {t.verifyCode}
-                </button>
-                {otpCooldown > 0 ? (
-                  <p className="text-center text-xs text-zinc-400">
-                    {t.waitSeconds.replace('{{s}}', String(otpCooldown))}
-                  </p>
-                ) : (
-                  <button onClick={handleSendOtp} className="w-full text-center text-xs text-primary font-medium">
-                    {t.sendCode}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        )}
+      {/* ===== SELECTED SERVICES SECTION ===== */}
+      {selectedTime !== null && (
+        <section ref={servicesSectionRef} className="max-w-2xl mx-auto px-4 pt-8">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            {t.yourServices}
+          </h2>
 
-        {/* ===== CONFIRM STEP ===== */}
-        {step === 'confirm' && selectedTime !== null && (
-          <div>
-            <div className="space-y-3 mb-6">
-              {/* Client info */}
-              <div className="flex items-center gap-3 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
-                <User size={18} className="text-primary" />
-                <div>
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    +{phoneNumber}
-                  </p>
-                  {savedUser?.first_name || savedUser?.last_name ? (
-                    <p className="text-xs text-zinc-500">
-                      {[savedUser.first_name, savedUser.last_name].filter(Boolean).join(' ')}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
+          {loading && serviceEmployees.length === 0 ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 size={24} className="animate-spin text-[#088395]" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Service cards */}
+              {selectedServiceIds.map(serviceId => {
+                const service = allServices.find(s => s.id === serviceId);
+                if (!service) return null;
 
-              {/* Date & Time */}
-              <div className="flex items-center gap-3 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
-                <Calendar size={18} className="text-primary" />
-                <div>
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{selectedDate}</p>
-                  <p className="text-xs text-zinc-500">{secondsToTime(selectedTime)}</p>
-                </div>
-              </div>
-
-              {/* Services with employees */}
-              {serviceEmployees.filter(svc => selectedServiceIds.includes(svc.service_id)).map(svc => {
-                const emp = svc.employees?.find(e => e.id === selectedEmployees[svc.service_id]);
-                const empName = emp ? [emp.first_name, emp.last_name].filter(Boolean).join(' ') : t.anySpecialist;
-                const price = emp?.price ?? allServices.find(s => s.id === svc.service_id)?.price ?? 0;
-                const duration = emp?.duration_minutes ?? allServices.find(s => s.id === svc.service_id)?.duration_minutes ?? 0;
+                const svcData = serviceEmployees.find(s => s.service_id === serviceId);
+                const selectedEmpId = selectedEmployees[serviceId];
+                const selectedEmp = svcData?.employees?.find(e => e.id === selectedEmpId);
+                const empName = selectedEmp
+                  ? [selectedEmp.first_name, selectedEmp.last_name].filter(Boolean).join(' ')
+                  : t.anySpecialist;
+                const price = selectedEmp?.price ?? service.price;
+                const duration = selectedEmp?.duration_minutes ?? service.duration_minutes;
 
                 return (
-                  <div key={svc.service_id} className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
+                  <div key={serviceId} className="bg-gray-50 rounded-2xl p-4">
                     <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{getText(svc.name)}</p>
-                        <p className="text-xs text-zinc-500 mt-0.5">
-                          <User size={12} className="inline mr-1" />{empName} &middot; {formatDuration(duration)}
+                      <div className="flex-1">
+                        <h4 className="text-sm font-semibold text-gray-900">
+                          {getText(service.name)}
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formatDuration(duration)} &middot; {formatPrice(price)} {t.sum}
                         </p>
                       </div>
-                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{formatPrice(price)} {t.sum}</p>
+                      {selectedServiceIds.length > 1 && (
+                        <button
+                          onClick={() => handleRemoveService(serviceId)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Employee row */}
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                          <User size={14} className="text-gray-500" />
+                        </div>
+                        <span className="text-sm text-gray-700">{empName}</span>
+                      </div>
+                      {svcData && svcData.employees && svcData.employees.length > 1 && (
+                        <button
+                          onClick={() => openEmployeeSheet(serviceId)}
+                          className="text-xs font-medium text-[#088395]"
+                        >
+                          {t.change}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
               })}
 
-              {/* Total */}
-              <div className="flex justify-between items-center p-4 bg-primary/5 rounded-xl">
-                <span className="text-base font-bold text-zinc-900 dark:text-zinc-100">{t.total}</span>
-                <span className="text-base font-bold text-primary">
-                  {formatPrice(totalPrice)} {t.sum}
-                </span>
-              </div>
+              {/* Add service button */}
+              {remainingServices.length > 0 && (
+                <button
+                  onClick={() => setShowAddServiceSheet(true)}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 border-2 border-dashed border-gray-300 rounded-2xl text-sm font-medium text-gray-500 hover:border-[#088395] hover:text-[#088395] transition-colors"
+                >
+                  <Plus size={16} />
+                  {t.addService}
+                </button>
+              )}
             </div>
+          )}
+        </section>
+      )}
 
+      {/* ===== NOTES SECTION ===== */}
+      {selectedTime !== null && (
+        <section className="max-w-2xl mx-auto px-4 pt-6 pb-32">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder={t.notesPlaceholder}
+            className="w-full p-4 bg-gray-50 rounded-2xl border-0 resize-none text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#088395]/20"
+            rows={3}
+          />
+          <p className="text-xs text-gray-400 mt-1.5 ml-1">{t.notes}</p>
+        </section>
+      )}
+
+      {/* ===== FIXED BOTTOM BAR ===== */}
+      {selectedTime !== null && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-gray-100 z-30">
+          <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500">{t.total}</p>
+              <p className="text-xl font-bold text-gray-900">
+                {formatPrice(totalPrice)} {t.sum}
+              </p>
+            </div>
             <button
               onClick={handleConfirmBooking}
-              disabled={loading}
-              className="w-full py-4 bg-primary text-white rounded-xl font-bold text-base disabled:opacity-50 flex items-center justify-center gap-2"
+              disabled={loading || selectedServiceIds.length === 0}
+              className="px-8 py-3.5 bg-[#088395] hover:bg-[#076e7d] text-white rounded-2xl font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
             >
-              {loading && <Loader2 size={18} className="animate-spin" />}
-              {t.bookNow}
+              {loading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                t.confirmBooking
+              )}
             </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ===== SUCCESS STEP ===== */}
-        {step === 'success' && (
-          <div className="text-center pt-12">
-            <div className="w-20 h-20 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-6 animate-scaleIn">
-              <Check size={36} className="text-green-600" />
+      {/* ===== SUCCESS OVERLAY ===== */}
+      {showSuccess && (
+        <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
+          <div className="text-center px-6 max-w-md w-full">
+            <div className="w-20 h-20 mx-auto rounded-full bg-green-50 flex items-center justify-center mb-6">
+              <Check size={40} className="text-green-500" />
             </div>
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">{t.bookingConfirmed}</h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8">{businessName}</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t.bookingConfirmed}</h2>
+            <p className="text-gray-500 mb-8">{businessName}</p>
 
+            {/* Booking details */}
             {bookingResult && (
-              <div className="text-left space-y-3 mb-8">
-                <div className="flex justify-between p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
-                  <span className="text-sm text-zinc-500">{t.date}</span>
-                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{(bookingResult as Record<string, unknown>).booking_date as string}</span>
+              <div className="space-y-3 mb-8 text-left">
+                <div className="flex justify-between p-4 bg-gray-50 rounded-2xl">
+                  <span className="text-sm text-gray-500">{t.selectDate}</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {(bookingResult.booking_date as string) || selectedDate}
+                  </span>
                 </div>
                 {selectedTime !== null && (
-                  <div className="flex justify-between p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
-                    <span className="text-sm text-zinc-500">{t.time}</span>
-                    <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{secondsToTime(selectedTime)}</span>
+                  <div className="flex justify-between p-4 bg-gray-50 rounded-2xl">
+                    <span className="text-sm text-gray-500">{t.selectTime}</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {secondsToTime(selectedTime)}
+                    </span>
                   </div>
                 )}
-                <div className="flex justify-between p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
-                  <span className="text-sm text-zinc-500">{t.total}</span>
-                  <span className="text-sm font-bold text-primary">{formatPrice((bookingResult as Record<string, unknown>).total_price as number)} {t.sum}</span>
+                <div className="flex justify-between p-4 bg-gray-50 rounded-2xl">
+                  <span className="text-sm text-gray-500">{t.total}</span>
+                  <span className="text-sm font-bold text-[#088395]">
+                    {formatPrice((bookingResult.total_price as number) ?? totalPrice)} {t.sum}
+                  </span>
                 </div>
               </div>
             )}
 
-            <button
-              onClick={() => router.push(`/${locale}`)}
-              className="w-full py-3.5 bg-primary text-white rounded-xl font-semibold text-sm"
-            >
-              {t.backToBusiness}
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => router.push(`/${locale}/${tenantSlug}/bookings`)}
+                className="w-full py-3.5 bg-[#088395] text-white rounded-2xl font-semibold text-sm transition-colors hover:bg-[#076e7d]"
+              >
+                {t.viewBookings}
+              </button>
+              <button
+                onClick={() => router.push(`/${locale}/${tenantSlug}`)}
+                className="w-full py-3.5 bg-gray-100 text-gray-700 rounded-2xl font-semibold text-sm transition-colors hover:bg-gray-200"
+              >
+                {t.backToBusiness}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ===== EMPLOYEE SELECTION BOTTOM SHEET ===== */}
       {showEmployeeSheet && editingServiceId && (
         <div
           className="fixed inset-0 bg-black/50 z-50 animate-fadeIn"
-          onClick={() => { setShowEmployeeSheet(false); setEditingServiceId(null); }}
+          onClick={() => {
+            setShowEmployeeSheet(false);
+            setEditingServiceId(null);
+          }}
         >
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white dark:bg-zinc-900 rounded-t-3xl max-h-[70vh] overflow-y-auto animate-slideUp"
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[70vh] overflow-y-auto animate-slideUp"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-white dark:bg-zinc-900 px-4 pt-4 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="sticky top-0 bg-white px-4 pt-4 pb-2 border-b border-gray-100">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{t.selectSpecialist}</h3>
+                <h3 className="text-base font-bold text-gray-900">{t.selectSpecialist}</h3>
                 <button
-                  onClick={() => { setShowEmployeeSheet(false); setEditingServiceId(null); }}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  onClick={() => {
+                    setShowEmployeeSheet(false);
+                    setEditingServiceId(null);
+                  }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
                 >
-                  <X size={18} className="text-zinc-500" />
+                  <X size={18} className="text-gray-500" />
                 </button>
               </div>
             </div>
@@ -1088,28 +797,32 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
 
                 return svcData.employees.map(emp => {
                   const isSelected = selectedEmployees[editingServiceId] === emp.id;
-                  const empName = [emp.first_name, emp.last_name].filter(Boolean).join(' ') || t.anySpecialist;
+                  const empName =
+                    [emp.first_name, emp.last_name].filter(Boolean).join(' ') || t.anySpecialist;
                   return (
                     <button
                       key={emp.id}
                       onClick={() => selectEmployee(editingServiceId, emp.id)}
-                      className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${isSelected
-                        ? 'border-2 border-primary bg-primary/5'
-                        : 'border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'
+                      className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${
+                        isSelected
+                          ? 'border-2 border-[#088395] bg-[#088395]/5'
+                          : 'border border-gray-200 hover:border-gray-400'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
-                          <User size={18} className="text-zinc-500" />
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          <User size={18} className="text-gray-500" />
                         </div>
                         <div className="text-left">
-                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{empName}</p>
-                          <p className="text-xs text-zinc-500">{formatDuration(emp.duration_minutes)}</p>
+                          <p className="text-sm font-medium text-gray-900">{empName}</p>
+                          <p className="text-xs text-gray-500">{formatDuration(emp.duration_minutes)}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{formatPrice(emp.price)} {t.sum}</span>
-                        {isSelected && <Check size={18} className="text-primary" />}
+                        <span className="text-sm font-medium text-gray-900">
+                          {formatPrice(emp.price)} {t.sum}
+                        </span>
+                        {isSelected && <Check size={18} className="text-[#088395]" />}
                       </div>
                     </button>
                   );
@@ -1127,17 +840,17 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
           onClick={() => setShowAddServiceSheet(false)}
         >
           <div
-            className="absolute bottom-0 left-0 right-0 bg-white dark:bg-zinc-900 rounded-t-3xl max-h-[70vh] overflow-y-auto animate-slideUp"
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[70vh] overflow-y-auto animate-slideUp"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-white dark:bg-zinc-900 px-4 pt-4 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="sticky top-0 bg-white px-4 pt-4 pb-2 border-b border-gray-100">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{t.addMoreServices}</h3>
+                <h3 className="text-base font-bold text-gray-900">{t.addMoreServices}</h3>
                 <button
                   onClick={() => setShowAddServiceSheet(false)}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
                 >
-                  <X size={18} className="text-zinc-500" />
+                  <X size={18} className="text-gray-500" />
                 </button>
               </div>
             </div>
@@ -1147,16 +860,20 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
                 <button
                   key={service.id}
                   onClick={() => handleAddService(service.id)}
-                  className="w-full flex items-center justify-between p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-primary transition-all"
+                  className="w-full flex items-center justify-between p-4 rounded-2xl border border-gray-200 hover:border-[#088395] transition-all"
                 >
                   <div className="text-left flex-1">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{getText(service.name)}</p>
-                    <p className="text-xs text-zinc-500 mt-0.5">{formatDuration(service.duration_minutes)}</p>
+                    <p className="text-sm font-medium text-gray-900">{getText(service.name)}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {formatDuration(service.duration_minutes)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{formatPrice(service.price)} {t.sum}</span>
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Plus size={16} className="text-primary" />
+                    <span className="text-sm font-medium text-gray-900">
+                      {formatPrice(service.price)} {t.sum}
+                    </span>
+                    <div className="w-8 h-8 rounded-full bg-[#088395]/10 flex items-center justify-center">
+                      <Plus size={16} className="text-[#088395]" />
                     </div>
                   </div>
                 </button>
@@ -1165,6 +882,14 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
           </div>
         </div>
       )}
+
+      {/* ===== LOGIN MODAL ===== */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onSuccess={handleLoginSuccess}
+        locale={locale}
+      />
     </div>
   );
 }

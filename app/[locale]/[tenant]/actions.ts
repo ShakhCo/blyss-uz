@@ -5,6 +5,27 @@ import { cookies } from 'next/headers'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
+// ─── Cookie helpers ───
+
+function getCookieOptions(maxAge: number, httpOnly = true) {
+  const cookieDomain = process.env.NODE_ENV === 'production' ? '.blyss.uz' : undefined
+  const isSecure = process.env.NODE_ENV === 'production'
+  return { httpOnly, secure: isSecure, sameSite: 'lax' as const, maxAge, path: '/', domain: cookieDomain }
+}
+
+async function setAuthCookies(
+  accessToken: string,
+  refreshToken: string,
+  user: { phone: string; first_name: string; last_name: string }
+) {
+  const cookieStore = await cookies()
+  cookieStore.set('blyss_access_token', accessToken, getCookieOptions(24 * 60 * 60))
+  cookieStore.set('blyss_refresh_token', refreshToken, getCookieOptions(30 * 24 * 60 * 60))
+  cookieStore.set('blyss_user', JSON.stringify(user), getCookieOptions(365 * 24 * 60 * 60, false))
+}
+
+// ─── Existing actions ───
+
 export async function getDistance(slug: string, lat: number, lng: number) {
   try {
     const response = await signedFetch(
@@ -92,31 +113,17 @@ export async function getSlotEmployees(
 export async function sendOtp(phoneNumber: string) {
   try {
     const body = JSON.stringify({ phone_number: phoneNumber })
-    const url = `${API_URL}/public/send-otp`
-    console.log('[sendOtp] request:', { url, phoneNumber, body })
-
-    const response = await signedFetch(url, {
+    const response = await signedFetch(`${API_URL}/public/send-otp`, {
       method: 'POST',
       body,
     })
 
-    const responseText = await response.text()
-    console.log('[sendOtp] response:', { status: response.status, statusText: response.statusText, body: responseText })
-
-    let data: Record<string, unknown>
-    try {
-      data = JSON.parse(responseText)
-    } catch {
-      console.error('[sendOtp] failed to parse response as JSON:', responseText)
-      return { success: false as const, error: `Server returned ${response.status}: ${responseText.slice(0, 200)}` }
-    }
+    const data = await response.json()
 
     if (!response.ok) {
-      console.error('[sendOtp] API error:', { status: response.status, data })
       return { success: false as const, error: data.error as string, error_code: data.error_code as string, wait_seconds: data.wait_seconds as number }
     }
 
-    console.log('[sendOtp] success:', data)
     return { success: true as const, delivery_method: (data.delivery_method as string) || 'sms' }
   } catch (error) {
     console.error('[sendOtp] exception:', error)
@@ -127,67 +134,81 @@ export async function sendOtp(phoneNumber: string) {
 export async function verifyOtp(phoneNumber: string, otpCode: number) {
   try {
     const body = JSON.stringify({ phone_number: phoneNumber, otp_code: otpCode })
-    const url = `${API_URL}/public/verify-otp`
-    console.log('[verifyOtp] request:', { url, phoneNumber, otpCode, body })
-
-    const response = await signedFetch(url, {
+    const response = await signedFetch(`${API_URL}/public/verify-otp`, {
       method: 'POST',
       body,
     })
 
-    const responseText = await response.text()
-    console.log('[verifyOtp] response:', { status: response.status, statusText: response.statusText, body: responseText })
-
-    let data: Record<string, unknown>
-    try {
-      data = JSON.parse(responseText)
-    } catch {
-      console.error('[verifyOtp] failed to parse response as JSON:', responseText)
-      return { success: false as const, error: `Server returned ${response.status}: ${responseText.slice(0, 200)}` }
-    }
+    const data = await response.json()
 
     if (!response.ok) {
-      console.error('[verifyOtp] API error:', { status: response.status, data })
       return { success: false as const, error: data.error as string, error_code: data.error_code as string }
     }
 
-    console.log('[verifyOtp] success, storing tokens')
-    const cookieStore = await cookies()
-    const cookieDomain = process.env.NODE_ENV === 'production' ? '.blyss.uz' : undefined
-    const isSecure = process.env.NODE_ENV === 'production'
+    if (data.needs_registration) {
+      return {
+        success: true as const,
+        needs_registration: true as const,
+        otp_id: data.otp_id as string,
+        phone_number: data.phone_number as string,
+      }
+    }
 
-    cookieStore.set('blyss_access_token', data.access_token as string, {
-      httpOnly: true,
-      secure: isSecure,
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60,
-      path: '/',
-      domain: cookieDomain,
-    })
-    cookieStore.set('blyss_refresh_token', data.refresh_token as string, {
-      httpOnly: true,
-      secure: isSecure,
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60,
-      path: '/',
-      domain: cookieDomain,
-    })
-    cookieStore.set('blyss_user', JSON.stringify({
+    // Existing user - set cookies
+    await setAuthCookies(data.access_token, data.refresh_token, {
       phone: phoneNumber,
       first_name: (data.first_name as string) || '',
       last_name: (data.last_name as string) || '',
-    }), {
-      httpOnly: false,
-      secure: isSecure,
-      sameSite: 'strict',
-      maxAge: 365 * 24 * 60 * 60,
-      path: '/',
-      domain: cookieDomain,
     })
-    return { success: true as const, user_id: data.user_id, phone_number: data.phone_number }
+
+    return {
+      success: true as const,
+      needs_registration: false as const,
+      user_id: data.user_id as string,
+      phone_number: data.phone_number as string,
+      first_name: (data.first_name as string) || '',
+      last_name: (data.last_name as string) || '',
+    }
   } catch (error) {
     console.error('[verifyOtp] exception:', error)
     return { success: false as const, error: 'Failed to verify OTP' }
+  }
+}
+
+export async function registerUser(
+  otpId: string,
+  phoneNumber: string,
+  firstName: string,
+  lastName: string
+) {
+  try {
+    const body = JSON.stringify({
+      otp_id: otpId,
+      phone_number: phoneNumber,
+      first_name: firstName,
+      last_name: lastName,
+    })
+
+    const response = await signedFetch(`${API_URL}/public/register`, {
+      method: 'POST',
+      body,
+    })
+
+    const data = await response.json()
+    if (!response.ok) {
+      return { success: false as const, error: data.error as string, error_code: data.error_code as string }
+    }
+
+    await setAuthCookies(data.access_token, data.refresh_token, {
+      phone: phoneNumber,
+      first_name: firstName,
+      last_name: lastName,
+    })
+
+    return { success: true as const, user_id: data.user_id as string }
+  } catch (error) {
+    console.error('[registerUser] exception:', error)
+    return { success: false as const, error: 'Failed to register' }
   }
 }
 
@@ -236,6 +257,8 @@ export async function createBooking(
   }
 }
 
+// ─── Auth actions ───
+
 export async function getAuthStatus() {
   try {
     const cookieStore = await cookies()
@@ -281,15 +304,68 @@ export async function getUserProfile() {
   }
 }
 
+export async function logout() {
+  try {
+    const cookieStore = await cookies()
+    const cookieDomain = process.env.NODE_ENV === 'production' ? '.blyss.uz' : undefined
+
+    cookieStore.delete({ name: 'blyss_access_token', path: '/', domain: cookieDomain })
+    cookieStore.delete({ name: 'blyss_refresh_token', path: '/', domain: cookieDomain })
+    cookieStore.delete({ name: 'blyss_user', path: '/', domain: cookieDomain })
+
+    return { success: true }
+  } catch (error) {
+    console.error('[logout] exception:', error)
+    return { success: false }
+  }
+}
+
+export async function getMyBookings(businessId?: string) {
+  try {
+    const cookieStore = await cookies()
+    const accessToken = cookieStore.get('blyss_access_token')?.value
+    if (!accessToken) return { bookings: [] }
+
+    const params = businessId ? `?business_id=${businessId}` : ''
+    const response = await signedFetch(`${API_URL}/public/my-bookings${params}`, {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    if (!response.ok) return { bookings: [] }
+    return await response.json()
+  } catch {
+    return { bookings: [] }
+  }
+}
+
+export async function refreshTokens() {
+  try {
+    const cookieStore = await cookies()
+    const refreshToken = cookieStore.get('blyss_refresh_token')?.value
+    if (!refreshToken) return false
+
+    const body = JSON.stringify({ refresh_token: refreshToken })
+    const response = await signedFetch(`${API_URL}/public/refresh-token`, {
+      method: 'POST',
+      body,
+    })
+
+    if (!response.ok) return false
+
+    const data = await response.json()
+    cookieStore.set('blyss_access_token', data.access_token, getCookieOptions(24 * 60 * 60))
+    cookieStore.set('blyss_refresh_token', data.refresh_token, getCookieOptions(30 * 24 * 60 * 60))
+
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function setBookingIntent(businessId: string, serviceIds: string[]) {
   const cookieStore = await cookies()
-  cookieStore.set('blyss_booking_intent', JSON.stringify({ businessId, serviceIds }), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 60 * 30, // 30 minutes
-    path: '/',
-  })
+  cookieStore.set('blyss_booking_intent', JSON.stringify({ businessId, serviceIds }), getCookieOptions(60 * 30))
 }
 
 export async function getBookingIntent() {

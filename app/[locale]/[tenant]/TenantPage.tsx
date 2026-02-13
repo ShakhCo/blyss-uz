@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { getDistance, setBookingIntent } from './actions';
 import type { Locale } from '@/lib/i18n';
 import { LOCALES } from '@/lib/i18n';
+import { UserMenu } from '@/app/components/auth/UserMenu';
 import {
   Clock,
   MapPin,
@@ -484,6 +485,7 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
               <LanguageSwitcher />
               <div className="flex items-center gap-1.5">
+                <UserMenu locale={locale} />
                 <button onClick={handleShare} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
                   <Share2 size={14} className="text-zinc-900 dark:text-zinc-100" />
                 </button>
@@ -516,6 +518,7 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
             {/* Desktop top actions */}
             <div className="absolute top-8 right-10 flex items-center gap-2">
               <LanguageSwitcherDesktop />
+              <UserMenu locale={locale} />
               <button onClick={handleShare} className="w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm">
                 <Share2 size={16} className="text-zinc-900 dark:text-zinc-100" />
               </button>
@@ -529,6 +532,7 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
         /* No photos - show a minimal header with language toggle */
         <div className="max-w-[1350px] mx-auto px-4 lg:px-6 flex justify-end gap-2 mb-2">
           <LanguageSwitcherDesktop className="shadow-none" />
+          <UserMenu locale={locale} />
           <button onClick={handleShare} className="w-9 h-9 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
             <Share2 size={16} className="text-zinc-900 dark:text-zinc-100" />
           </button>
