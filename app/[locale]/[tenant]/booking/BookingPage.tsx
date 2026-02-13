@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Locale } from '@/lib/i18n';
 import {
   ChevronLeft,
   Clock,
@@ -19,8 +20,6 @@ import {
   createBooking,
   getAuthStatus,
 } from '../actions';
-
-type Language = 'uz' | 'ru';
 
 interface MultilingualText {
   uz: string;
@@ -73,11 +72,12 @@ interface BookingPageProps {
   services: Service[];
   employees: Employee[];
   tenantSlug: string;
+  locale: Locale;
 }
 
 type Step = 'date' | 'time' | 'employees' | 'phone' | 'confirm' | 'success';
 
-const UI = {
+const UI: Record<Locale, Record<string, string>> = {
   uz: {
     back: 'Orqaga',
     selectDate: 'Sanani tanlang',
@@ -115,6 +115,7 @@ const UI = {
     errorOccurred: 'Xatolik yuz berdi',
     tryAgain: 'Qayta urinib ko\'ring',
     alreadyBooked: 'Siz allaqachon bu vaqtda band qilgansiz',
+    servicesSelected: 'xizmat tanlangan',
   },
   ru: {
     back: 'Назад',
@@ -153,15 +154,16 @@ const UI = {
     errorOccurred: 'Произошла ошибка',
     tryAgain: 'Попробуйте снова',
     alreadyBooked: 'У вас уже есть бронь на это время',
+    servicesSelected: 'услуг выбрано',
   },
 };
 
-const DAY_NAMES_SHORT: Record<Language, string[]> = {
+const DAY_NAMES_SHORT: Record<Locale, string[]> = {
   uz: ['Yak', 'Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan'],
   ru: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
 };
 
-const MONTH_NAMES: Record<Language, string[]> = {
+const MONTH_NAMES: Record<Locale, string[]> = {
   uz: ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'],
   ru: ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'],
 };
@@ -187,10 +189,9 @@ function generateNext30Days(): Date[] {
   return days;
 }
 
-export function BookingPage({ businessId, businessName, businessPhone, services, tenantSlug }: BookingPageProps) {
+export function BookingPage({ businessId, businessName, businessPhone, services, tenantSlug, locale }: BookingPageProps) {
   const router = useRouter();
-  const [lang] = useState<Language>('uz');
-  const t = UI[lang];
+  const t = UI[locale];
 
   const [step, setStep] = useState<Step>('date');
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -214,7 +215,7 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
   const getText = (text: MultilingualText | string | null | undefined): string => {
     if (!text) return '';
     if (typeof text === 'string') return text;
-    return text[lang] || text.uz || '';
+    return text[locale as keyof MultilingualText] || text.ru || text.uz || '';
   };
 
   const formatPrice = (price: number) => price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -317,7 +318,6 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
 
     try {
       const result = await sendOtp(phoneNumber);
-      console.log(result)
       if (result.success) {
         setOtpSent(true);
         setOtpCooldown(60);
@@ -325,8 +325,7 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
         setError(result.error || t.errorOccurred);
         if (result.wait_seconds) setOtpCooldown(result.wait_seconds);
       }
-    } catch (error) {
-      console.log("error")
+    } catch {
       setError(t.errorOccurred);
     } finally {
       setLoading(false);
@@ -390,7 +389,7 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
       case 'employees': setStep('time'); break;
       case 'phone': setStep('employees'); break;
       case 'confirm': setStep(isAuthenticated ? 'employees' : 'phone'); break;
-      default: router.push(`/`);
+      default: router.push(`/${locale}`);
     }
   };
 
@@ -450,7 +449,7 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
           <div>
             {/* Services summary */}
             <div className="mb-6 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl">
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">{services.length} {lang === 'uz' ? 'xizmat tanlangan' : 'услуг выбрано'}</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">{services.length} {t.servicesSelected}</p>
               {services.map(s => (
                 <div key={s.id} className="flex justify-between py-1">
                   <span className="text-sm text-zinc-900 dark:text-zinc-100">{getText(s.name)}</span>
@@ -481,11 +480,11 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
                     }`}
                   >
                     <span className={`text-[10px] font-medium ${isSelected ? 'text-white/70' : 'text-zinc-500'}`}>
-                      {isToday ? t.today : isTomorrow ? t.tomorrow : DAY_NAMES_SHORT[lang][date.getDay()]}
+                      {isToday ? t.today : isTomorrow ? t.tomorrow : DAY_NAMES_SHORT[locale][date.getDay()]}
                     </span>
                     <span className="text-xl font-bold mt-0.5">{date.getDate()}</span>
                     <span className={`text-[10px] ${isSelected ? 'text-white/70' : 'text-zinc-500'}`}>
-                      {MONTH_NAMES[lang][date.getMonth()]}
+                      {MONTH_NAMES[locale][date.getMonth()]}
                     </span>
                   </button>
                 );
@@ -748,7 +747,7 @@ export function BookingPage({ businessId, businessName, businessPhone, services,
             )}
 
             <button
-              onClick={() => router.push(`/`)}
+              onClick={() => router.push(`/${locale}`)}
               className="w-full py-3.5 bg-primary text-white rounded-xl font-semibold text-sm"
             >
               {t.backToBusiness}

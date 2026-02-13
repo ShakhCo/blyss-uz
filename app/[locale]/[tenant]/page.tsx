@@ -2,6 +2,8 @@ import { getTenant } from '@/lib/tenant'
 import { signedFetch } from '@/lib/api'
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
+import type { Locale } from '@/lib/i18n'
+import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n'
 import { TenantPage } from './TenantPage'
 
 interface MultilingualText {
@@ -63,24 +65,48 @@ async function getBusinessData(tenantSlug: string): Promise<BusinessData | null>
   }
 }
 
+const OG_LOCALE_MAP: Record<Locale, string> = {
+  ru: 'ru_RU',
+  uz: 'uz_UZ',
+}
+
+const TENANT_META: Record<Locale, {
+  title: (name: string) => string
+  description: (name: string) => string
+  ogTitle: (name: string) => string
+}> = {
+  ru: {
+    title: (name) => `${name} — Онлайн-запись`,
+    description: (name) => `Запишитесь онлайн в ${name} — просмотрите услуги, цены и забронируйте через Blyss.`,
+    ogTitle: (name) => `${name} — Онлайн-запись | Blyss`,
+  },
+  uz: {
+    title: (name) => `${name} — Onlayn yozilish`,
+    description: (name) => `${name} — xizmatlar va narxlarni ko'ring, Blyss orqali onlayn band qiling.`,
+    ogTitle: (name) => `${name} — Onlayn yozilish | Blyss`,
+  },
+}
+
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ tenant: string }>
+  params: Promise<{ tenant: string; locale: string }>
 }): Promise<Metadata> {
-  const { tenant: tenantSlug } = await params
+  const { tenant: tenantSlug, locale: localeParam } = await params
+  const locale: Locale = isValidLocale(localeParam) ? localeParam : DEFAULT_LOCALE
   const businessData = await getBusinessData(tenantSlug)
 
   if (!businessData) {
     return {
-      title: 'Business Not Found | Blyss',
+      title: 'Business Not Found',
       robots: { index: false, follow: false },
     }
   }
 
   const { business } = businessData
-  const title = `${business.name} — Book Online | Онлайн-запись | Onlayn yozilish | Blyss`
-  const description = `Book beauty & wellness services at ${business.name} in Uzbekistan. View prices and book online via Blyss. | Запишитесь онлайн в ${business.name} — просмотрите услуги, цены и забронируйте через Blyss. | ${business.name} — xizmatlar va narxlarni ko'ring, Blyss orqali onlayn band qiling.`
+  const m = TENANT_META[locale]
+  const title = m.title(business.name)
+  const description = m.description(business.name)
   const url = `https://${business.tenant_url}.blyss.uz`
   const ogImage = business.cover_url || 'https://blyss.uz/og-image.png'
   const favicon = business.avatar_url || '/favicon.png'
@@ -94,22 +120,28 @@ export async function generateMetadata({
     },
     openGraph: {
       type: 'website',
-      url,
-      title: `${business.name} — Book Online | Онлайн-запись | Blyss`,
+      url: `${url}/${locale}`,
+      title: m.ogTitle(business.name),
       description,
       siteName: 'Blyss',
-      locale: 'en_US',
-      alternateLocale: ['ru_RU', 'uz_UZ'],
+      locale: OG_LOCALE_MAP[locale],
+      alternateLocale: Object.entries(OG_LOCALE_MAP)
+        .filter(([l]) => l !== locale)
+        .map(([, v]) => v),
       images: [{ url: ogImage, width: 1200, height: 630, alt: business.name }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${business.name} — Book Online | Онлайн-запись | Blyss`,
+      title: m.ogTitle(business.name),
       description,
       images: [ogImage],
     },
     alternates: {
-      canonical: url,
+      canonical: `${url}/${locale}`,
+      languages: {
+        'ru': `${url}/ru`,
+        'uz': `${url}/uz`,
+      },
     },
     robots: {
       index: true,
@@ -121,19 +153,24 @@ export async function generateMetadata({
 export default async function Page({
   params,
 }: {
-  params: Promise<{ tenant: string }>
+  params: Promise<{ tenant: string; locale: string }>
 }) {
-  const { tenant: tenantSlug } = await params
+  const { tenant: tenantSlug, locale: localeParam } = await params
+  const locale: Locale = isValidLocale(localeParam) ? localeParam : DEFAULT_LOCALE
   const tenant = await getTenant()
   const businessData = await getBusinessData(tenantSlug)
 
   // Redirect to homepage if not accessed via subdomain or business not found
   if (!tenant.isTenant || tenant.slug !== tenantSlug) {
-    redirect('/')
+    redirect(`/${locale}`)
   }
 
   if (!businessData) {
-    redirect('/')
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-900">
+        <p className="text-zinc-500">Business not found</p>
+      </div>
+    )
   }
 
   const { business, photos, services } = businessData
@@ -193,6 +230,7 @@ export default async function Page({
       photos={photos || []}
       tenantSlug={tenantSlug}
       businessId={business.id}
+      locale={locale}
     />
   </div>
 }

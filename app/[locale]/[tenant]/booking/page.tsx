@@ -1,5 +1,7 @@
 import { getTenant } from '@/lib/tenant'
 import { signedFetch } from '@/lib/api'
+import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n'
+import type { Locale } from '@/lib/i18n'
 import { BookingPage } from './BookingPage'
 import { getBookingIntent } from '../actions'
 
@@ -47,9 +49,10 @@ async function getBusinessData(tenantSlug: string) {
 export default async function Page({
   params,
 }: {
-  params: Promise<{ tenant: string }>
+  params: Promise<{ tenant: string; locale: string }>
 }) {
-  const { tenant: tenantSlug } = await params
+  const { tenant: tenantSlug, locale: localeParam } = await params
+  const locale: Locale = isValidLocale(localeParam) ? localeParam : DEFAULT_LOCALE
   const tenant = await getTenant()
 
   if (!tenant.isTenant || tenant.slug !== tenantSlug) {
@@ -100,6 +103,7 @@ export default async function Page({
       services={selectedServices}
       employees={employees}
       tenantSlug={tenantSlug}
+      locale={locale}
     />
   )
 }

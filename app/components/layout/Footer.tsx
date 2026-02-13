@@ -184,10 +184,8 @@ export const Footer = () => {
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">Language:</span>
             <select className="text-sm text-gray-600 bg-transparent border border-gray-300 rounded px-2 py-1 hover:border-gray-400 transition-colors">
-              <option value="en">English</option>
-              <option value="es">Español</option>
-              <option value="fr">Français</option>
-              <option value="de">Deutsch</option>
+              <option value="ru">Русский</option>
+              <option value="uz">O&apos;zbekcha</option>
             </select>
           </div>
         </div>

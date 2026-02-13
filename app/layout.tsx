@@ -18,11 +18,11 @@ const SITE_URL = 'https://blyss.uz';
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'Blyss — Book Beauty & Wellness Services in Uzbekistan | Онлайн-запись | Go\'zallik xizmatlari',
+    default: 'Blyss — Онлайн-запись в салоны красоты Узбекистана',
     template: '%s | Blyss',
   },
   description:
-    'Blyss — book beauty & wellness services in Uzbekistan. Salons, barbers, spas & more via Telegram. | Онлайн-запись в салоны красоты, барбершопы, спа и велнес-студии Узбекистана. Откройте в Telegram — без скачивания. | Go\'zallik va sog\'lomlashtirish xizmatlariga onlayn yoziling. Salonlar, sartaroshxonalar, spa — Telegram orqali.',
+    'Найдите и запишитесь к лучшим мастерам Узбекистана — салоны красоты, барбершопы, спа. Откройте в Telegram — без скачивания.',
   keywords: [
     // English
     'book beauty services', 'beauty salon booking', 'wellness booking',
@@ -58,28 +58,28 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    locale: 'en_US',
-    alternateLocale: ['ru_RU', 'uz_UZ'],
+    locale: 'ru_RU',
+    alternateLocale: ['uz_UZ'],
     url: SITE_URL,
     siteName: 'Blyss',
-    title: 'Blyss — Book Beauty & Wellness Services in Uzbekistan',
+    title: 'Blyss — Онлайн-запись в салоны красоты Узбекистана',
     description:
-      'Discover and book top-rated salons, barbers, spas and wellness studios across Uzbekistan. No download needed — open in Telegram. | Откройте в Telegram — запишитесь к лучшим мастерам. | Telegram orqali oching — eng yaxshi ustalarga yoziling.',
+      'Откройте в Telegram — запишитесь к лучшим мастерам Узбекистана. Салоны красоты, барбершопы, спа и велнес-студии.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Blyss — Beauty & Wellness Booking Platform | Платформа для записи | Go\'zallik platformasi',
+        alt: 'Blyss — Платформа для онлайн-записи в салоны красоты',
         type: 'image/png',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Blyss — Book Beauty & Wellness | Онлайн-запись | Go\'zallik xizmatlari',
+    title: 'Blyss — Онлайн-запись в салоны красоты',
     description:
-      'Book salons, barbers, spas in Uzbekistan via Telegram. | Запишитесь в салон через Telegram. | Telegram orqali salonga yoziling.',
+      'Запишитесь в салон через Telegram. Салоны красоты, барбершопы, спа — Узбекистан.',
     images: ['/og-image.png'],
     creator: '@blyssuz',
   },
@@ -95,9 +95,8 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: SITE_URL,
+    canonical: `${SITE_URL}/ru`,
     languages: {
-      'en': SITE_URL,
       'ru': `${SITE_URL}/ru`,
       'uz': `${SITE_URL}/uz`,
     },
@@ -121,7 +120,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="ru" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { getDistance, setBookingIntent } from './actions';
+import type { Locale } from '@/lib/i18n';
+import { LOCALES } from '@/lib/i18n';
 import {
   Clock,
   MapPin,
@@ -20,8 +22,6 @@ import {
   ChevronUp,
   Plus,
 } from 'lucide-react';
-
-type Language = 'uz' | 'ru';
 
 interface MultilingualText {
   uz: string;
@@ -71,6 +71,7 @@ interface TenantPageProps {
   photos: Photo[];
   tenantSlug: string;
   businessId: string;
+  locale: Locale;
 }
 
 function secondsToTime(seconds: number): string {
@@ -80,7 +81,7 @@ function secondsToTime(seconds: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-const DAY_NAMES: Record<Language, Record<string, string>> = {
+const DAY_NAMES: Record<Locale, Record<string, string>> = {
   uz: {
     monday: 'Dushanba',
     tuesday: 'Seshanba',
@@ -103,7 +104,7 @@ const DAY_NAMES: Record<Language, Record<string, string>> = {
 
 const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-const UI_TEXT: Record<Language, Record<string, string>> = {
+const UI_TEXT: Record<Locale, Record<string, string>> = {
   uz: {
     openUntil: '{{time}} gacha ochiq',
     closedNow: 'Hozir yopiq',
@@ -188,10 +189,15 @@ const UI_TEXT: Record<Language, Record<string, string>> = {
   },
 };
 
-export function TenantPage({ business, services, photos, tenantSlug, businessId }: TenantPageProps) {
+const LOCALE_LABELS: Record<Locale, string> = {
+  uz: 'UZ',
+  ru: 'RU',
+};
+
+export function TenantPage({ business, services, photos, tenantSlug, businessId, locale }: TenantPageProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
-  const [language, setLanguage] = useState<Language>('uz');
   const [searchQuery, setSearchQuery] = useState('');
   const [showGallery, setShowGallery] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -317,13 +323,13 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId 
     return () => { document.body.style.overflow = ''; };
   }, [showGallery, showLocationModal]);
 
-  const t = UI_TEXT[language];
-  const dayNames = DAY_NAMES[language];
+  const t = UI_TEXT[locale];
+  const dayNames = DAY_NAMES[locale];
 
   const getText = (text: MultilingualText | string | null | undefined): string => {
     if (!text) return '';
     if (typeof text === 'string') return text;
-    return text[language] || text.uz || '';
+    return text[locale as keyof MultilingualText] || text.ru || text.uz || '';
   };
 
   const formatPrice = (price: number) => {
@@ -369,7 +375,18 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId 
   const handleBookNow = async () => {
     if (selectedServices.length === 0) return;
     await setBookingIntent(businessId, selectedServices.map(s => s.id));
-    router.push('/booking');
+    router.push(`/${locale}/booking`);
+  };
+
+  const switchLocale = (newLocale: Locale) => {
+    // usePathname() returns the rewritten path: /{locale}/{tenantSlug}/...
+    // But the visible URL is /{locale}/... (tenant is in the subdomain)
+    // Strip the locale + tenant prefix, keep the rest, build new path
+    const segments = pathname.split('/').filter(Boolean);
+    // segments: ['uz', 'tenantSlug', 'booking', ...] → rest = ['booking', ...]
+    const rest = segments.slice(2);
+    const newPath = `/${newLocale}${rest.length > 0 ? '/' + rest.join('/') : ''}`;
+    router.push(newPath);
   };
 
   const filteredServices = services.filter(service => {
@@ -408,11 +425,128 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId 
   const openStatus = isOpenNow();
   const closingTime = getClosingTime();
 
+  const LanguageSwitcher = ({ className = '' }: { className?: string }) => (
+    <div className={`flex bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full p-0.5 ${className}`}>
+      {LOCALES.map((loc) => (
+        <button
+          key={loc}
+          onClick={() => switchLocale(loc)}
+          className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${locale === loc ? 'bg-primary text-white' : 'text-zinc-600 dark:text-zinc-300'}`}
+        >
+          {LOCALE_LABELS[loc]}
+        </button>
+      ))}
+    </div>
+  );
+
+  const LanguageSwitcherDesktop = ({ className = '' }: { className?: string }) => (
+    <div className={`flex bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full p-0.5 shadow-sm ${className}`}>
+      {LOCALES.map((loc) => (
+        <button
+          key={loc}
+          onClick={() => switchLocale(loc)}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${locale === loc ? 'bg-primary text-white' : 'text-zinc-700 dark:text-zinc-300'}`}
+        >
+          {LOCALE_LABELS[loc]}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-900 pt-10">
+    <div className="min-h-screen bg-white dark:bg-zinc-900">
+
+      {/* ===== GALLERY MOSAIC ===== */}
+      {hasPhotos ? (
+        <div className="relative">
+          {/* Mobile: Single image carousel */}
+          <div className="lg:hidden relative aspect-[4/3] bg-zinc-100 dark:bg-zinc-800">
+            <img
+              src={galleryImages[currentImageIndex] || coverUrl || ''}
+              alt={business.name}
+              className="w-full h-full object-cover"
+            />
+            {/* Mobile nav dots */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {galleryImages.slice(0, 5).map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentImageIndex(idx)}
+                  className={`w-1.5 h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'bg-white w-4' : 'bg-white/60'}`}
+                />
+              ))}
+            </div>
+            {/* Mobile swipe arrows */}
+            {galleryImages.length > 1 && (
+              <>
+                <button onClick={prevImage} className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
+                  <ChevronLeft size={18} className="text-zinc-900 dark:text-zinc-100" />
+                </button>
+                <button onClick={nextImage} className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
+                  <ChevronRight size={18} className="text-zinc-900 dark:text-zinc-100" />
+                </button>
+              </>
+            )}
+            {/* Top actions mobile */}
+            <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+              <LanguageSwitcher />
+              <div className="flex items-center gap-1.5">
+                <button onClick={handleShare} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
+                  <Share2 size={14} className="text-zinc-900 dark:text-zinc-100" />
+                </button>
+                <button onClick={() => setIsFavorite(!isFavorite)} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
+                  <Heart size={14} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop: Mosaic grid */}
+          <div className="hidden lg:block max-w-[1350px] mx-auto px-6 pt-4">
+            <div className="grid grid-cols-3 grid-rows-2 gap-5 h-[450px]">
+              {/* Large main image (cover) */}
+              <div className="col-span-2 row-span-2 relative cursor-pointer group" onClick={() => { setCurrentImageIndex(0); setShowGallery(true); }}>
+                <img src={mosaicImages[0] || coverUrl || ''} alt={business.name} className="w-full h-full rounded-lg object-cover group-hover:brightness-95 transition-all" />
+              </div>
+              {/* Two stacked images on the right */}
+              {mosaicImages.slice(1, 3).map((img, idx) => (
+                <div key={idx} className="relative cursor-pointer rounded-lg overflow-hidden" onClick={() => { setCurrentImageIndex(idx + 1); setShowGallery(true); }}>
+                  <img src={img} alt="" className="w-full h-full rounded-lg object-cover transition-all" />
+                  {idx === 1 && galleryImages.length > 3 && (
+                    <div className="absolute inset-0 flex items-end p-2 justify-end transition-colors">
+                      <span className="text-zinc-900 font-medium text-xs bg-white px-3 py-2.5 rounded-xl capitalize">{t.seeAllImages}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Desktop top actions */}
+            <div className="absolute top-8 right-10 flex items-center gap-2">
+              <LanguageSwitcherDesktop />
+              <button onClick={handleShare} className="w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm">
+                <Share2 size={16} className="text-zinc-900 dark:text-zinc-100" />
+              </button>
+              <button onClick={() => setIsFavorite(!isFavorite)} className="w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm">
+                <Heart size={16} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* No photos - show a minimal header with language toggle */
+        <div className="max-w-[1350px] mx-auto px-4 lg:px-6 flex justify-end gap-2 mb-2">
+          <LanguageSwitcherDesktop className="shadow-none" />
+          <button onClick={handleShare} className="w-9 h-9 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
+            <Share2 size={16} className="text-zinc-900 dark:text-zinc-100" />
+          </button>
+          <button onClick={() => setIsFavorite(!isFavorite)} className="w-9 h-9 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
+            <Heart size={16} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
+          </button>
+        </div>
+      )}
 
       {/* Business Info Header */}
-      <div className="max-w-[1350px] mx-auto px-4 lg:px-6 mb-4">
+      <div className="max-w-[1350px] mx-auto px-4 lg:px-6 mt-5 mb-4">
         <h1 className="text-2xl lg:text-4xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">
           {business.name}
         </h1>
@@ -477,134 +611,6 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId 
           )}
         </div>
       </div>
-
-      {/* ===== GALLERY MOSAIC ===== */}
-      {hasPhotos ? (
-        <div className="relative">
-          {/* Mobile: Single image carousel */}
-          <div className="lg:hidden relative aspect-[4/3] bg-zinc-100 dark:bg-zinc-800">
-            <img
-              src={galleryImages[currentImageIndex] || coverUrl || ''}
-              alt={business.name}
-              className="w-full h-full object-cover"
-            />
-            {/* Mobile nav dots */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-              {galleryImages.slice(0, 5).map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentImageIndex(idx)}
-                  className={`w-1.5 h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'bg-white w-4' : 'bg-white/60'}`}
-                />
-              ))}
-            </div>
-            {/* Mobile swipe arrows */}
-            {galleryImages.length > 1 && (
-              <>
-                <button onClick={prevImage} className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
-                  <ChevronLeft size={18} className="text-zinc-900 dark:text-zinc-100" />
-                </button>
-                <button onClick={nextImage} className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
-                  <ChevronRight size={18} className="text-zinc-900 dark:text-zinc-100" />
-                </button>
-              </>
-            )}
-            {/* Top actions mobile */}
-            <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-              <div className="flex bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full p-0.5">
-                <button
-                  onClick={() => setLanguage('uz')}
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${language === 'uz' ? 'bg-primary text-white' : 'text-zinc-600 dark:text-zinc-300'}`}
-                >
-                  UZ
-                </button>
-                <button
-                  onClick={() => setLanguage('ru')}
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${language === 'ru' ? 'bg-primary text-white' : 'text-zinc-600 dark:text-zinc-300'}`}
-                >
-                  RU
-                </button>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button onClick={handleShare} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
-                  <Share2 size={14} className="text-zinc-900 dark:text-zinc-100" />
-                </button>
-                <button onClick={() => setIsFavorite(!isFavorite)} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
-                  <Heart size={14} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop: Mosaic grid */}
-          <div className="hidden lg:block max-w-[1350px] mx-auto px-6 pt-4">
-            <div className="grid grid-cols-3 grid-rows-2 gap-5 h-[450px]">
-              {/* Large main image (cover) */}
-              <div className="col-span-2 row-span-2 relative cursor-pointer group" onClick={() => { setCurrentImageIndex(0); setShowGallery(true); }}>
-                <img src={mosaicImages[0] || coverUrl || ''} alt={business.name} className="w-full h-full rounded-lg object-cover group-hover:brightness-95 transition-all" />
-              </div>
-              {/* Two stacked images on the right */}
-              {mosaicImages.slice(1, 3).map((img, idx) => (
-                <div key={idx} className="relative cursor-pointer rounded-lg overflow-hidden" onClick={() => { setCurrentImageIndex(idx + 1); setShowGallery(true); }}>
-                  <img src={img} alt="" className="w-full h-full rounded-lg object-cover transition-all" />
-                  {idx === 1 && galleryImages.length > 3 && (
-                    <div className="absolute inset-0 flex items-end p-2 justify-end transition-colors">
-                      <span className="text-zinc-900 font-medium text-xs bg-white px-3 py-2.5 rounded-xl capitalize">{t.seeAllImages}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {/* Desktop top actions */}
-            <div className="absolute top-8 right-10 flex items-center gap-2">
-              <div className="flex bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full p-0.5 shadow-sm">
-                <button
-                  onClick={() => setLanguage('uz')}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${language === 'uz' ? 'bg-primary text-white' : 'text-zinc-700 dark:text-zinc-300'}`}
-                >
-                  UZ
-                </button>
-                <button
-                  onClick={() => setLanguage('ru')}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${language === 'ru' ? 'bg-primary text-white' : 'text-zinc-700 dark:text-zinc-300'}`}
-                >
-                  RU
-                </button>
-              </div>
-              <button onClick={handleShare} className="w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm">
-                <Share2 size={16} className="text-zinc-900 dark:text-zinc-100" />
-              </button>
-              <button onClick={() => setIsFavorite(!isFavorite)} className="w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm">
-                <Heart size={16} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* No photos - show a minimal header with language toggle */
-        <div className="max-w-[1350px] mx-auto px-4 lg:px-6 flex justify-end gap-2 mb-2">
-          <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-0.5">
-            <button
-              onClick={() => setLanguage('uz')}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${language === 'uz' ? 'bg-primary text-white' : 'text-zinc-700 dark:text-zinc-300'}`}
-            >
-              UZ
-            </button>
-            <button
-              onClick={() => setLanguage('ru')}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${language === 'ru' ? 'bg-primary text-white' : 'text-zinc-700 dark:text-zinc-300'}`}
-            >
-              RU
-            </button>
-          </div>
-          <button onClick={handleShare} className="w-9 h-9 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
-            <Share2 size={16} className="text-zinc-900 dark:text-zinc-100" />
-          </button>
-          <button onClick={() => setIsFavorite(!isFavorite)} className="w-9 h-9 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
-            <Heart size={16} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
-          </button>
-        </div>
-      )}
 
       {/* ===== MAIN CONTENT ===== */}
       <div className="max-w-[1350px] mx-auto px-4 lg:px-6 pb-8">
