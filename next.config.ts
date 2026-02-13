@@ -40,6 +40,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: https:",
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://api.blyss.uz",
+              "frame-src https://www.google.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
