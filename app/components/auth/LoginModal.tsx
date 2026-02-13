@@ -65,6 +65,7 @@ const ERROR_CODES: Record<'uz' | 'ru', Record<string, string>> = {
     OTP_INVALID_STATE: 'Kod muddati tugagan yoki ishlatilgan',
     PHONE_EXISTS: 'Bu raqam allaqachon ro\'yxatdan o\'tgan',
     PHONE_MISMATCH: 'Telefon raqamlar mos kelmaydi',
+    OTP_MAX_ATTEMPTS: 'Kod urinishlari tugadi. Yangi kod so\'rang',
   },
   ru: {
     INVALID_OTP: 'Неверный код',
@@ -74,6 +75,7 @@ const ERROR_CODES: Record<'uz' | 'ru', Record<string, string>> = {
     OTP_INVALID_STATE: 'Код истёк или уже использован',
     PHONE_EXISTS: 'Этот номер уже зарегистрирован',
     PHONE_MISMATCH: 'Номера телефонов не совпадают',
+    OTP_MAX_ATTEMPTS: 'Исчерпаны попытки ввода кода. Запросите новый',
   },
 }
 
@@ -351,7 +353,8 @@ export function LoginModal({ isOpen, onClose, onSuccess, locale }: LoginModalPro
   const validateFirstName = (name: string): boolean => {
     const trimmed = name.trim()
     if (trimmed.length < 2) return false
-    if (/\d/.test(trimmed)) return false
+    // Only allow letters, spaces, hyphens, apostrophes
+    if (!/^[\p{L}\s\-']+$/u.test(trimmed)) return false
     return true
   }
 

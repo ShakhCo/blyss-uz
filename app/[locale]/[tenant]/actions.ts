@@ -5,6 +5,16 @@ import { cookies } from 'next/headers'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
+// Validate tenant slug to prevent path traversal
+const SLUG_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/
+
+function validateSlug(slug: string): string {
+  if (!SLUG_REGEX.test(slug)) {
+    throw new Error('Invalid tenant slug')
+  }
+  return slug
+}
+
 // ─── Cookie helpers ───
 
 function getCookieOptions(maxAge: number, httpOnly = true) {
@@ -28,8 +38,9 @@ async function setAuthCookies(
 
 export async function getDistance(slug: string, lat: number, lng: number) {
   try {
+    const safeSlug = validateSlug(slug)
     const response = await signedFetch(
-      `${API_URL}/public/businesses/${slug}/services?lat=${lat}&lng=${lng}`,
+      `${API_URL}/public/businesses/${safeSlug}/services?lat=${lat}&lng=${lng}`,
       { cache: 'no-store' }
     )
 
@@ -59,8 +70,9 @@ export async function getAvailableSlots(
     })
     if (employeeId) params.set('employee_id', employeeId)
 
+    const safeId = validateSlug(businessId)
     const response = await signedFetch(
-      `${API_URL}/public/businesses/${businessId}/available-slots-v2?${params}`,
+      `${API_URL}/public/businesses/${safeId}/available-slots-v2?${params}`,
       { cache: 'no-store' }
     )
 
@@ -92,8 +104,9 @@ export async function getSlotEmployees(
     })
     if (employeeId) params.set('employee_id', employeeId)
 
+    const safeId = validateSlug(businessId)
     const response = await signedFetch(
-      `${API_URL}/public/businesses/${businessId}/slot-employees?${params}`,
+      `${API_URL}/public/businesses/${safeId}/slot-employees?${params}`,
       { cache: 'no-store' }
     )
 
@@ -234,8 +247,9 @@ export async function createBooking(
       notes: notes || '',
     })
 
+    const safeId = validateSlug(businessId)
     const response = await signedFetch(
-      `${API_URL}/public/businesses/${businessId}/bookings-v2`,
+      `${API_URL}/public/businesses/${safeId}/bookings-v2`,
       {
         method: 'POST',
         body,

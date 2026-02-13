@@ -110,6 +110,9 @@ const UI: Record<Locale, Record<string, string>> = {
     noEmployeeAvailable: 'Bu vaqtda bo\'sh mutaxassis yo\'q',
     businessClosed: 'Bu kunda ish vaqti yo\'q',
     employeeNotWorking: 'Mutaxassis bu kuni ishlamaydi',
+    employeeNotAvailable: 'Tanlangan mutaxassis bu vaqtda band',
+    pastDate: 'O\'tgan sanaga buyurtma berish mumkin emas',
+    exceedsBusinessHours: 'Tanlangan vaqt ish vaqtidan tashqarida',
     addService: 'Xizmat qo\'shish',
     change: 'O\'zgartirish',
     selectSpecialist: 'Mutaxassisni tanlang',
@@ -142,6 +145,9 @@ const UI: Record<Locale, Record<string, string>> = {
     noEmployeeAvailable: 'Нет свободных специалистов на это время',
     businessClosed: 'В этот день не работает',
     employeeNotWorking: 'Специалист не работает в этот день',
+    employeeNotAvailable: 'Выбранный специалист занят в это время',
+    pastDate: 'Нельзя записаться на прошедшую дату',
+    exceedsBusinessHours: 'Выбранное время за пределами рабочего времени',
     addService: 'Добавить услугу',
     change: 'Изменить',
     selectSpecialist: 'Выберите специалиста',
@@ -467,6 +473,9 @@ export function BookingPage({
           NO_EMPLOYEE_AVAILABLE: t.noEmployeeAvailable,
           BUSINESS_CLOSED: t.businessClosed,
           EMPLOYEE_NOT_WORKING: t.employeeNotWorking,
+          EMPLOYEE_NOT_AVAILABLE: t.employeeNotAvailable,
+          PAST_DATE: t.pastDate,
+          EXCEEDS_BUSINESS_HOURS: t.exceedsBusinessHours,
         };
         const code = result.error_code || '';
         setError(errorMap[code] || t.errorOccurred);
