@@ -67,10 +67,15 @@ interface ServiceSlotData {
   reason?: string;
 }
 
+interface WorkingHours {
+  [day: string]: { start: number; end: number; is_open: boolean };
+}
+
 interface BookingPageProps {
   businessId: string;
   businessName: string;
   businessPhone: string;
+  workingHours: WorkingHours | null;
   services: Service[];
   allServices: Service[];
   employees: Employee[];
@@ -173,12 +178,23 @@ function generateNext30Days(): Date[] {
   return days;
 }
 
+// JS getDay(): 0=Sun,1=Mon,...,6=Sat → working_hours keys
+const JS_DAY_TO_KEY = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+function isDayOpen(date: Date, workingHours: WorkingHours | null): boolean {
+  if (!workingHours) return true; // no data = assume open
+  const key = JS_DAY_TO_KEY[date.getDay()];
+  const dayHours = workingHours[key];
+  return dayHours ? dayHours.is_open : true;
+}
+
 // ─── Component ───
 
 export function BookingPage({
   businessId,
   businessName,
   businessPhone,
+  workingHours,
   services,
   allServices,
   employees,
@@ -462,7 +478,6 @@ export function BookingPage({
 
   const handleLoginSuccess = () => {
     setShowLoginModal(false);
-    submitBooking();
   };
 
   const goBack = () => {
@@ -509,12 +524,27 @@ export function BookingPage({
             const isSelected = selectedDate === dateStr;
             const isToday = idx === 0;
             const isTomorrow = idx === 1;
+            const isOpen = isDayOpen(date, workingHours);
             const dayName = isToday
               ? t.today
               : isTomorrow
                 ? t.tomorrow
                 : DAY_NAMES_SHORT[locale][date.getDay()];
             const monthName = MONTH_NAMES[locale][date.getMonth()];
+
+            if (!isOpen) {
+              return (
+                <button
+                  key={dateStr}
+                  disabled
+                  className="flex-shrink-0 flex flex-col items-center w-[4.5rem] py-3 rounded-2xl bg-gray-50 opacity-40 cursor-not-allowed"
+                >
+                  <span className="text-[10px] font-medium text-gray-400">{dayName}</span>
+                  <span className="text-xl font-bold mt-0.5 text-gray-300 line-through">{date.getDate()}</span>
+                  <span className="text-[10px] text-gray-400">{monthName}</span>
+                </button>
+              );
+            }
 
             return (
               <button

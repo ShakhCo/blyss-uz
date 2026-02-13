@@ -3,7 +3,7 @@ import { signedFetch } from '@/lib/api'
 import { redirect } from 'next/navigation'
 import type { Locale } from '@/lib/i18n'
 import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n'
-import { getMyBookings, getSavedUser } from '../actions'
+import { getMyBookings, getAuthStatus } from '../actions'
 import { BookingsList } from '@/app/components/bookings/BookingsList'
 import { ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
@@ -49,8 +49,8 @@ export default async function BookingsPage({
     redirect(`/${locale}`)
   }
 
-  const savedUser = await getSavedUser()
-  if (!savedUser) {
+  const { authenticated } = await getAuthStatus()
+  if (!authenticated) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">

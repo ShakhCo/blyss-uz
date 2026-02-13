@@ -98,6 +98,7 @@ export default async function Page({
       businessId={businessId}
       businessName={businessData.business.name}
       businessPhone={businessData.business.business_phone_number}
+      workingHours={businessData.business.working_hours || null}
       services={selectedServices}
       allServices={allServices}
       employees={employees}
