@@ -252,7 +252,7 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
     ? photos.map(p => ({ url: p.url, category: p.category }))
     : [];
 
-  const coverUrl = business.cover_url || (allPhotos.length > 0 ? allPhotos[0].url : null);
+  const coverUrl = business.cover_url || null;
 
   // For the mosaic: cover + first interior + first exterior
   const interiorPhotos = allPhotos.filter(p => p.category === 'interior');
@@ -270,7 +270,7 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
 
   const galleryImages = allPhotos.map(p => p.url);
   const hasPhotos = galleryImages.length > 0;
-  const hasCover = !!(coverUrl || hasPhotos);
+  const hasCover = !!coverUrl;
 
   // Filtered photos for gallery modal
   const filteredGalleryPhotos = galleryFilter === 'all'
@@ -513,7 +513,7 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
           </div>
         </div>
       ) : (
-        <div className="relative h-[120px] lg:h-[200px] bg-zinc-100 dark:bg-zinc-800">
+        <div className="relative h-[120px] lg:h-[200px]" style={{ backgroundColor: primaryColor }}>
           <div className="absolute top-3 right-3 lg:top-4 lg:right-4">
             <LanguageSwitcherDesktop className="shadow-none" />
           </div>
