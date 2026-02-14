@@ -3,17 +3,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { getDistance, reverseGeocode, setBookingIntent } from './actions';
+import { BottomNav } from '@/app/components/layout/BottomNav';
 import type { Locale } from '@/lib/i18n';
 import { LOCALES } from '@/lib/i18n';
-import { UserMenu } from '@/app/components/auth/UserMenu';
 import {
   Clock,
   MapPin,
   Phone,
   Star,
   Instagram,
-  Share2,
-  Heart,
   Search,
   X,
   ChevronLeft,
@@ -220,14 +218,13 @@ const LOCALE_LABELS: Record<Locale, string> = {
   ru: 'RU',
 };
 
-export function TenantPage({ business, services, employees, photos, tenantSlug, businessId, locale, savedUser }: TenantPageProps) {
+export function TenantPage({ business, services, employees, photos, tenantSlug, businessId, locale }: TenantPageProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
   const [showGallery, setShowGallery] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [galleryFilter, setGalleryFilter] = useState<'all' | 'interior' | 'exterior'>('all');
-  const [isFavorite, setIsFavorite] = useState(false);
   const [showAllHours, setShowAllHours] = useState(false);
   const [distance, setDistance] = useState<{ distance: number; metric: string } | null>(null);
   const [distanceLoading, setDistanceLoading] = useState(false);
@@ -235,6 +232,7 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [geoAddress, setGeoAddress] = useState<string | null>(null);
   const locationRetries = useRef(0);
+
 
   const servicesRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
@@ -449,20 +447,6 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
     return acc;
   }, {});
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: business.name,
-          text: business.tagline || business.business_type,
-          url: window.location.href,
-        });
-      } catch {
-        // User cancelled
-      }
-    }
-  };
-
   const nextImage = () => setCurrentImageIndex((prev) => (prev + 1) % (hasPhotos ? galleryImages.length : 1));
   const prevImage = () => setCurrentImageIndex((prev) => (prev - 1 + (hasPhotos ? galleryImages.length : 1)) % (hasPhotos ? galleryImages.length : 1));
 
@@ -515,15 +499,6 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
               {/* Top actions mobile */}
               <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
                 <LanguageSwitcher />
-                <div className="flex items-center gap-1.5">
-                  <UserMenu locale={locale} user={savedUser} />
-                  <button onClick={(e) => { e.stopPropagation(); handleShare(); }} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
-                    <Share2 size={14} className="text-zinc-900 dark:text-zinc-100" />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); setIsFavorite(!isFavorite); }} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
-                    <Heart size={14} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
-                  </button>
-                </div>
               </div>
             </div>
             {/* Photo thumbnails row - square */}
@@ -571,27 +546,13 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
             {/* Desktop top actions */}
             <div className="absolute top-8 right-10 flex items-center gap-2">
               <LanguageSwitcherDesktop />
-              <UserMenu locale={locale} user={savedUser} />
-              <button onClick={handleShare} className="w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm">
-                <Share2 size={16} className="text-zinc-900 dark:text-zinc-100" />
-              </button>
-              <button onClick={() => setIsFavorite(!isFavorite)} className="w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm">
-                <Heart size={16} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
-              </button>
             </div>
           </div>
         </div>
       ) : (
         /* No photos - show a minimal header with language toggle */
         <div className="max-w-[1350px] mx-auto px-4 lg:px-6 flex justify-end gap-2 mb-2">
-          <LanguageSwitcherDesktop className="shadow-none" />
-          <UserMenu locale={locale} user={savedUser} />
-          <button onClick={handleShare} className="w-9 h-9 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
-            <Share2 size={16} className="text-zinc-900 dark:text-zinc-100" />
-          </button>
-          <button onClick={() => setIsFavorite(!isFavorite)} className="w-9 h-9 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
-            <Heart size={16} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
-          </button>
+          <LanguageSwitcherDesktop className="shadow-none " />
         </div>
       )}
 
@@ -604,16 +565,73 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
 
 
             {/* Business Info Header */}
-            <div className="mb-4 lg:mb-6 flex items-start gap-4">
+            {/* Mobile: stacked layout with avatar overlapping cover */}
+            <div className="lg:hidden mb-4">
+              {business.avatar_url && (
+                <div className="-mt-8 mb-3 px-1">
+                  <img
+                    src={business.avatar_url}
+                    alt={business.name}
+                    className="w-16 h-16 rounded-xl object-cover border-2 border-white dark:border-zinc-900 shadow-sm"
+                  />
+                </div>
+              )}
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">
+                {business.name}
+              </h1>
+              {(geoAddress || business.location?.address) && (
+                <p className="text-base text-zinc-500 dark:text-zinc-400 mt-1">
+                  {geoAddress || business.location?.address}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 mt-1.5">
+                {openStatus && closingTime ? (
+                  <span className="text-base font-medium text-green-600 dark:text-green-400">
+                    {t.openUntil.replace('{{time}}', closingTime)}
+                  </span>
+                ) : (
+                  <span className="text-base font-medium text-red-500 dark:text-red-400">{t.closedNow}</span>
+                )}
+                {distanceLoading && (
+                  <>
+                    <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
+                    <span className="inline-block w-24 h-4 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse" />
+                  </>
+                )}
+                {distance && !distanceLoading && (
+                  <>
+                    <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
+                    <span className="text-base text-zinc-500 dark:text-zinc-400">
+                      {t.distanceAway.replace('{{distance}}', `${distance.distance} ${distance.metric}`)}
+                    </span>
+                  </>
+                )}
+                {distanceDenied && !distance && !distanceLoading && (
+                  <>
+                    <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
+                    <button
+                      onClick={() => fetchDistance(true)}
+                      className="text-base text-primary hover:underline flex items-center gap-1"
+                    >
+                      <MapPin size={14} />
+                      {t.showDistance}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Desktop: side-by-side layout */}
+            <div className="hidden lg:flex mb-6 items-start gap-4">
               {business.avatar_url && (
                 <img
                   src={business.avatar_url}
                   alt={business.name}
-                  className="w-20 h-20 lg:w-24 lg:h-24 rounded-lg object-cover flex-shrink-0 border border-zinc-200 dark:border-zinc-700"
+                  className="w-24 h-24 rounded-lg object-cover flex-shrink-0 border border-zinc-200 dark:border-zinc-700"
                 />
               )}
               <div className="min-w-0">
-                <h1 className="text-2xl lg:text-4xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">
+                <h1 className="text-4xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">
                   {business.name}
                 </h1>
 
@@ -1031,6 +1049,9 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
           </div>
         </div>
       )}
+
+      {/* ===== MOBILE BOTTOM NAV ===== */}
+      <BottomNav locale={locale} />
 
       {/* ===== GALLERY MODAL (with category tabs) ===== */}
       {showGallery && hasPhotos && (

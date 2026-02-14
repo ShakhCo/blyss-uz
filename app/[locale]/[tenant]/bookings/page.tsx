@@ -7,6 +7,9 @@ import { BookingsList } from '@/app/components/bookings/BookingsList'
 import { ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { signedFetch } from '@/lib/api'
+import { BottomNav } from '@/app/components/layout/BottomNav'
+import { BookingsLoginPrompt } from './BookingsLoginPrompt'
+import { BookingsUserInfo } from './BookingsUserInfo'
 
 const T = {
   uz: {
@@ -55,22 +58,11 @@ export default async function BookingsPage({
     redirect(`/${locale}`)
   }
 
-  const { authenticated } = await getAuthStatus()
-  if (!authenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-          <p className="text-gray-500">{t.loginRequired}</p>
-          <Link
-            href={`/${locale}`}
-            className="inline-block mt-4 px-6 py-2.5 bg-[#088395] text-white rounded-xl text-sm font-semibold"
-          >
-            {t.back}
-          </Link>
-        </div>
-      </div>
-    )
+  const authResult = await getAuthStatus()
+  if (!authResult.authenticated) {
+    return <BookingsLoginPrompt locale={locale} />
   }
+  const user = 'user' in authResult ? authResult.user as { phone: string; first_name: string; last_name: string } : null
 
   const [{ bookings: allBookings }, businessId] = await Promise.all([
     getMyBookings(),
@@ -83,35 +75,42 @@ export default async function BookingsPage({
   const otherCount = allBookings.length - tenantBookings.length
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white dark:bg-zinc-900">
       {/* Header */}
-      <div className="sticky top-0 bg-white/80 backdrop-blur-lg z-30 border-b border-gray-100">
+      <div className="sticky top-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-lg z-30 border-b border-zinc-200 dark:border-zinc-800">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link
             href={`/${locale}`}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
           >
-            <ChevronLeft size={20} className="text-gray-900" />
+            <ChevronLeft size={20} className="text-zinc-900 dark:text-zinc-100" />
           </Link>
-          <h1 className="text-lg font-bold text-gray-900">{t.myBookings}</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t.myBookings}</h1>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        {otherCount > 0 && (
-          <div className="mb-4 p-4 bg-[#088395]/5 rounded-2xl flex items-center justify-between gap-3">
-            <p className="text-sm text-gray-700">{t.otherBookings(otherCount)}</p>
+      <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
+        {user && (
+          <div className="mb-4">
+            <BookingsUserInfo user={user} locale={locale} />
+          </div>
+        )}
+        {/* {otherCount > 0 && (
+          <div className="mb-4 p-4 bg-[#088395]/5 dark:bg-[#088395]/10 rounded-2xl flex items-center justify-between gap-3">
+            <p className="text-base text-zinc-700 dark:text-zinc-300">{t.otherBookings(otherCount)}</p>
             <a
               href={`https://blyss.uz/${locale}/my-bookings`}
-              className="text-sm font-semibold text-[#088395] whitespace-nowrap"
+              className="text-base font-semibold text-[#088395] whitespace-nowrap"
             >
               {t.viewAll} →
             </a>
           </div>
-        )}
+        )} */}
         <BookingsList bookings={tenantBookings} locale={locale} showBusinessName={false} />
       </div>
+
+      <BottomNav locale={locale} />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import type { Locale } from '@/lib/i18n'
-import { Calendar, Clock, User } from 'lucide-react'
+import { Calendar, ChevronRight, Clock } from 'lucide-react'
 
 interface MultilingualText {
   uz: string
@@ -36,35 +36,31 @@ interface BookingsListProps {
   showBusinessName?: boolean
 }
 
+const MONTH_NAMES: Record<Locale, string[]> = {
+  uz: ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'],
+  ru: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
+}
+
 const T: Record<Locale, Record<string, string>> = {
   uz: {
     noBookings: 'Buyurtmalar yo\'q',
     noBookingsDesc: 'Siz hali hech narsa band qilmagansiz',
-    confirmed: 'Tasdiqlangan',
-    pending: 'Kutilmoqda',
-    completed: 'Bajarilgan',
     cancelled: 'Bekor qilingan',
-    total: 'Jami',
     sum: "so'm",
-    minute: 'daq',
+    min: 'daq',
   },
   ru: {
     noBookings: 'Нет записей',
     noBookingsDesc: 'Вы ещё ничего не бронировали',
-    confirmed: 'Подтверждено',
-    pending: 'Ожидание',
-    completed: 'Завершено',
     cancelled: 'Отменено',
-    total: 'Итого',
     sum: 'сум',
-    minute: 'мин',
+    min: 'мин',
   },
 }
 
 function parseTime(value: number | string | undefined | null): number | null {
   if (value == null) return null
   if (typeof value === 'number') return value
-  // Handle ISO string like "2026-02-13T10:00"
   if (typeof value === 'string' && value.includes('T')) {
     const timePart = value.split('T')[1]
     const [h, m] = timePart.split(':').map(Number)
@@ -92,11 +88,12 @@ function resolveText(value: string | MultilingualText | undefined | null, locale
   return value[locale] || value.ru || value.uz || ''
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  confirmed: 'bg-green-50 text-green-700',
-  pending: 'bg-yellow-50 text-yellow-700',
-  completed: 'bg-gray-100 text-gray-600',
-  cancelled: 'bg-red-50 text-red-600',
+function formatDate(dateStr: string, locale: Locale): string {
+  const parts = dateStr.split('-')
+  if (parts.length !== 3) return dateStr
+  const day = parseInt(parts[2], 10)
+  const month = parseInt(parts[1], 10) - 1
+  return `${day} ${MONTH_NAMES[locale][month]}`
 }
 
 export function BookingsList({ bookings, locale, showBusinessName = false }: BookingsListProps) {
@@ -105,75 +102,71 @@ export function BookingsList({ bookings, locale, showBusinessName = false }: Boo
   if (bookings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4">
-        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-          <Calendar size={28} className="text-gray-400" />
+        <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
+          <Calendar size={28} className="text-zinc-400 dark:text-zinc-500" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">{t.noBookings}</h3>
-        <p className="text-sm text-gray-500">{t.noBookingsDesc}</p>
+        <h3 className="text-xl lg:text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-1">{t.noBookings}</h3>
+        <p className="text-base lg:text-lg text-zinc-500 dark:text-zinc-400">{t.noBookingsDesc}</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className='flex flex-col w-full gap-4'>
       {bookings.map((booking) => {
-        const statusKey = booking.status || 'pending'
-        const statusLabel = t[statusKey] || statusKey
-        const statusStyle = STATUS_STYLES[statusKey] || STATUS_STYLES.pending
+        const isCancelled = booking.status === 'cancelled'
         const items = booking.items || []
+        const timeRange = items.length > 0
+          ? `${secondsToTime(items[0].start_time)} – ${secondsToTime(items[items.length - 1].end_time)}`
+          : null
 
         return (
-          <div key={booking.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-            {/* Header */}
-            <div className="px-4 pt-4 pb-3 flex items-start justify-between">
-              <div>
-                {showBusinessName && booking.business_name && (
-                  <p className="text-sm font-semibold text-gray-900 mb-0.5">{resolveText(booking.business_name as string | MultilingualText, locale)}</p>
-                )}
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Calendar size={14} />
-                  <span>{booking.booking_date}</span>
-                  {items.length > 0 && (
-                    <>
-                      <span className="text-gray-300">|</span>
-                      <Clock size={14} />
-                      <span>
-                        {secondsToTime(items[0].start_time)}
-                        {items.length > 1 && ` - ${secondsToTime(items[items.length - 1].end_time)}`}
-                      </span>
-                    </>
-                  )}
+          <div key={booking.id} className={`p-4 rounded-xl bg-white dark:bg-zinc-800 border-4 border-zinc-200 dark:border-zinc-700 shadow-xs ${isCancelled ? 'opacity-50' : ''}`}>
+            {/* Date, time, status */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <Calendar size={18} className="text-zinc-400 dark:text-zinc-500" />
+                  <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{formatDate(booking.booking_date, locale)}</span>
                 </div>
+                {timeRange && (
+                  <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{timeRange}</span>
+                )}
               </div>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusStyle}`}>
-                {statusLabel}
-              </span>
+              {isCancelled && (
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                  {t.cancelled}
+                </span>
+              )}
             </div>
 
+            {showBusinessName && booking.business_name && (
+              <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
+                {resolveText(booking.business_name as string | MultilingualText, locale)}
+              </p>
+            )}
+
             {/* Services */}
-            <div className="px-4 pb-3 space-y-2">
+            <div className="space-y-2">
               {items.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between py-1.5">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-sm text-gray-900 truncate">{resolveText(item.service_name, locale)}</span>
-                    {item.employee_name && (
-                      <span className="flex items-center gap-1 text-xs text-gray-400 shrink-0">
-                        <User size={10} />
-                        {item.employee_name}
-                      </span>
-                    )}
+                <div key={idx} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ChevronRight size={18} className="text-zinc-300 dark:text-zinc-600 shrink-0" />
+                    <span className="text-lg text-zinc-700 dark:text-zinc-300 truncate">{resolveText(item.service_name, locale)}</span>
                   </div>
-                  <span className="text-sm font-medium text-gray-900 ml-3 shrink-0">
-                    {formatPrice(item.price)} {t.sum}
+                  <span className="text-base text-zinc-500 dark:text-zinc-400 shrink-0 ml-3">
+                    {item.employee_name}
                   </span>
                 </div>
               ))}
             </div>
 
-            {/* Footer total */}
-            <div className="px-4 py-3 bg-gray-50 flex justify-between items-center">
-              <span className="text-sm font-semibold text-gray-600">{t.total}</span>
-              <span className="text-sm font-bold text-[#088395]">
+            {/* Footer */}
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-700">
+              <span className="text-base text-zinc-400 dark:text-zinc-500">
+                {booking.total_duration_minutes} {t.min}
+              </span>
+              <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                 {formatPrice(booking.total_price)} {t.sum}
               </span>
             </div>
