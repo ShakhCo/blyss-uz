@@ -455,14 +455,14 @@ export function LoginModal({ isOpen, onClose, onSuccess, locale }: LoginModalPro
         {/* ─── OTP Step ─── */}
         {step === 'otp' && (
           <div>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-1">
               <div className="w-10 h-10 rounded-full bg-[#088395]/10 flex items-center justify-center">
                 <Phone size={20} className="text-[#088395]" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900">{t.enterCode}</h2>
             </div>
 
-            <p className="text-sm text-gray-500 mb-6 ml-[52px]">
+            <p className="text-sm lg:text-base text-gray-500 mb-6 ml-[52px]">
               {deliveryMethod === 'telegram' ? t.codeSentTelegram : t.codeSentSms}
             </p>
 

@@ -120,7 +120,20 @@ body {
   100% { transform: rotate(360deg); }
 }
 
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 /* Animation Classes */
+.animate-slideInRight {
+  animation: slideInRight 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 .animate-slideUp {
   animation: slideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1);
 }

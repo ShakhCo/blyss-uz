@@ -4,7 +4,7 @@ import { signedFetch } from '@/lib/api'
 import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
 import { BookingPage } from './BookingPage'
-import { getBookingIntent, getSavedUser } from '../actions'
+import { getBookingIntent, getAuthStatus } from '../actions'
 
 interface MultilingualText {
   uz: string
@@ -37,12 +37,16 @@ async function getBusinessData(tenantSlug: string) {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
     const response = await signedFetch(`${apiUrl}/public/businesses/${tenantSlug}/services`, {
-      cache: 'no-store'
+      next: { revalidate: 60 }
     })
 
-    if (!response.ok) return null
+    if (!response.ok) {
+      console.error(`[booking/getBusinessData] ${response.status}:`, await response.text())
+      return null
+    }
     return await response.json()
-  } catch {
+  } catch (error) {
+    console.error('[booking/getBusinessData] fetch error:', error)
     return null
   }
 }
@@ -66,24 +70,21 @@ export default async function Page({
 
   const intent = await getBookingIntent()
   if (!intent) {
-    redirect(`/${locale}/${tenantSlug}`)
+    redirect(`/${locale}`)
   }
 
   const { businessId, serviceIds } = intent
   const businessData = await getBusinessData(tenantSlug)
 
   if (!businessData) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <p className="text-zinc-500">Unable to load business data.</p>
-      </div>
-    )
+    redirect(`/${locale}`)
   }
 
   const allServices: Service[] = businessData.services || []
   const selectedServices = allServices.filter((s: Service) => serviceIds.includes(s.id))
   const employees: Employee[] = businessData.employees || []
-  const savedUser = await getSavedUser()
+  const authStatus = await getAuthStatus()
+  const savedUser = authStatus.authenticated && 'user' in authStatus ? authStatus.user : null
 
   if (selectedServices.length === 0) {
     return (

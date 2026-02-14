@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { getDistance, setBookingIntent } from './actions';
+import { getDistance, reverseGeocode, setBookingIntent } from './actions';
 import type { Locale } from '@/lib/i18n';
 import { LOCALES } from '@/lib/i18n';
 import { UserMenu } from '@/app/components/auth/UserMenu';
@@ -20,6 +20,7 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
+  User,
 } from 'lucide-react';
 
 interface MultilingualText {
@@ -34,6 +35,20 @@ interface Service {
   price: number;
   duration_minutes: number;
   category?: string;
+}
+
+interface Employee {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  position: string;
+  services: {
+    id: string;
+    service_id: string;
+    name: MultilingualText | null;
+    price: number;
+    duration_minutes: number;
+  }[];
 }
 
 interface Photo {
@@ -73,6 +88,7 @@ interface SavedUser {
 interface TenantPageProps {
   business: Business;
   services: Service[];
+  employees: Employee[];
   photos: Photo[];
   tenantSlug: string;
   businessId: string;
@@ -151,6 +167,8 @@ const UI_TEXT: Record<Locale, Record<string, string>> = {
     locationStep2: '"Joylashuv" ni "Ruxsat berish" ga o\'zgartiring',
     locationStep3: 'Sahifani qayta yuklang',
     gotIt: 'Tushunarli',
+    specialists: 'Mutaxassislar',
+    noSpecialists: 'Mutaxassislar mavjud emas',
   },
   ru: {
     openUntil: 'Открыто до {{time}}',
@@ -192,6 +210,8 @@ const UI_TEXT: Record<Locale, Record<string, string>> = {
     locationStep2: 'Измените "Местоположение" на "Разрешить"',
     locationStep3: 'Перезагрузите страницу',
     gotIt: 'Понятно',
+    specialists: 'Специалисты',
+    noSpecialists: 'Специалисты отсутствуют',
   },
 };
 
@@ -200,7 +220,7 @@ const LOCALE_LABELS: Record<Locale, string> = {
   ru: 'RU',
 };
 
-export function TenantPage({ business, services, photos, tenantSlug, businessId, locale, savedUser }: TenantPageProps) {
+export function TenantPage({ business, services, employees, photos, tenantSlug, businessId, locale, savedUser }: TenantPageProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
@@ -213,12 +233,14 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
   const [distanceLoading, setDistanceLoading] = useState(false);
   const [distanceDenied, setDistanceDenied] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [geoAddress, setGeoAddress] = useState<string | null>(null);
   const locationRetries = useRef(0);
 
   const servicesRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
 
   const DISTANCE_CACHE_KEY = `distance_${business.tenant_url}`;
+  const ADDRESS_CACHE_KEY = `address_v2_${business.tenant_url}_${locale}`;
   const CACHE_TTL = 24 * 60 * 60 * 1000;
 
   // Build gallery images from photos + cover
@@ -236,9 +258,9 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
   if (coverUrl) mosaicImages.push(coverUrl);
   if (interiorPhotos.length > 0 && interiorPhotos[0].url !== coverUrl) mosaicImages.push(interiorPhotos[0].url);
   if (exteriorPhotos.length > 0) mosaicImages.push(exteriorPhotos[0].url);
-  // Fill remaining slots from photos
+  // Fill remaining slots from photos (up to 5 for desktop banner + thumbnails)
   for (const p of allPhotos) {
-    if (mosaicImages.length >= 3) break;
+    if (mosaicImages.length >= 5) break;
     if (!mosaicImages.includes(p.url)) mosaicImages.push(p.url);
   }
 
@@ -323,6 +345,32 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
   }, [business.location, business.tenant_url]);
 
   useEffect(() => {
+    if (!business.location?.lat || !business.location?.lng) return;
+    // Check cache first
+    try {
+      const raw = localStorage.getItem(ADDRESS_CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (Date.now() - cached.timestamp < CACHE_TTL) {
+          setGeoAddress(cached.address);
+          return;
+        }
+        localStorage.removeItem(ADDRESS_CACHE_KEY);
+      }
+    } catch { /* ignore */ }
+    // Fetch from Nominatim
+    reverseGeocode(business.location.lat, business.location.lng, locale).then((address) => {
+      if (address) {
+        setGeoAddress(address);
+        try {
+          localStorage.setItem(ADDRESS_CACHE_KEY, JSON.stringify({ address, timestamp: Date.now() }));
+        } catch { /* ignore */ }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [business.location, locale]);
+
+  useEffect(() => {
     const isOpen = showGallery || showLocationModal;
     document.body.style.overflow = isOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -370,6 +418,8 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
   };
 
   const handleBookService = async (service: Service) => {
+    // Clear any saved booking state before starting fresh
+    document.cookie = `blyss_booking_${businessId}=; path=/; max-age=0`;
     await setBookingIntent(businessId, [service.id]);
     router.push(`/${locale}/booking`);
   };
@@ -453,72 +503,75 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
       {/* ===== GALLERY MOSAIC ===== */}
       {hasPhotos ? (
         <div className="relative">
-          {/* Mobile: Single image carousel */}
-          <div className="lg:hidden relative aspect-[4/3] bg-zinc-100 dark:bg-zinc-800">
-            <img
-              src={galleryImages[currentImageIndex] || coverUrl || ''}
-              alt={business.name}
-              className="w-full h-full object-cover"
-            />
-            {/* Mobile nav dots */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-              {galleryImages.slice(0, 5).map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentImageIndex(idx)}
-                  className={`w-1.5 h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'bg-white w-4' : 'bg-white/60'}`}
-                />
-              ))}
-            </div>
-            {/* Mobile swipe arrows */}
-            {galleryImages.length > 1 && (
-              <>
-                <button onClick={prevImage} className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
-                  <ChevronLeft size={18} className="text-zinc-900 dark:text-zinc-100" />
-                </button>
-                <button onClick={nextImage} className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
-                  <ChevronRight size={18} className="text-zinc-900 dark:text-zinc-100" />
-                </button>
-              </>
-            )}
-            {/* Top actions mobile */}
-            <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-              <LanguageSwitcher />
-              <div className="flex items-center gap-1.5">
-                <UserMenu locale={locale} />
-                <button onClick={handleShare} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
-                  <Share2 size={14} className="text-zinc-900 dark:text-zinc-100" />
-                </button>
-                <button onClick={() => setIsFavorite(!isFavorite)} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
-                  <Heart size={14} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
-                </button>
+          {/* Mobile: Cover banner + thumbnail row */}
+          <div className="lg:hidden">
+            {/* Full-width cover banner */}
+            <div className="relative aspect-[16/7] bg-zinc-100 dark:bg-zinc-800" onClick={() => { setCurrentImageIndex(0); setShowGallery(true); }}>
+              <img
+                src={mosaicImages[0] || coverUrl || ''}
+                alt={business.name}
+                className="w-full h-full object-cover"
+              />
+              {/* Top actions mobile */}
+              <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                <LanguageSwitcher />
+                <div className="flex items-center gap-1.5">
+                  <UserMenu locale={locale} user={savedUser} />
+                  <button onClick={(e) => { e.stopPropagation(); handleShare(); }} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
+                    <Share2 size={14} className="text-zinc-900 dark:text-zinc-100" />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); setIsFavorite(!isFavorite); }} className="w-8 h-8 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center">
+                    <Heart size={14} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-zinc-900 dark:text-zinc-100'} />
+                  </button>
+                </div>
               </div>
             </div>
+            {/* Photo thumbnails row - square */}
+            {/* {mosaicImages.length > 1 && (
+              <div className="flex gap-1.5 px-3 mt-1.5">
+                {mosaicImages.slice(1, 5).map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="relative w-[72px] h-[72px] cursor-pointer rounded-md overflow-hidden flex-shrink-0"
+                    onClick={() => { setCurrentImageIndex(idx + 1); setShowGallery(true); }}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    {idx === mosaicImages.slice(1, 5).length - 1 && galleryImages.length > 5 && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <span className="text-white font-medium text-xs capitalize">{t.seeAllImages}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )} */}
           </div>
 
-          {/* Desktop: Mosaic grid */}
+          {/* Desktop: Cover banner + photo row */}
           <div className="hidden lg:block max-w-[1350px] mx-auto px-6 pt-4">
-            <div className="grid grid-cols-3 grid-rows-2 gap-5 h-[450px]">
-              {/* Large main image (cover) */}
-              <div className="col-span-2 row-span-2 relative cursor-pointer group" onClick={() => { setCurrentImageIndex(0); setShowGallery(true); }}>
-                <img src={mosaicImages[0] || coverUrl || ''} alt={business.name} className="w-full h-full rounded-lg object-cover group-hover:brightness-95 transition-all" />
-              </div>
-              {/* Two stacked images on the right */}
-              {mosaicImages.slice(1, 3).map((img, idx) => (
-                <div key={idx} className="relative cursor-pointer rounded-lg overflow-hidden" onClick={() => { setCurrentImageIndex(idx + 1); setShowGallery(true); }}>
-                  <img src={img} alt="" className="w-full h-full rounded-lg object-cover transition-all" />
-                  {idx === 1 && galleryImages.length > 3 && (
-                    <div className="absolute inset-0 flex items-end p-2 justify-end transition-colors">
-                      <span className="text-zinc-900 font-medium text-xs bg-white px-3 py-2.5 rounded-xl capitalize">{t.seeAllImages}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
+            {/* Full-width cover banner */}
+            <div className="relative cursor-pointer group h-[300px] rounded-lg overflow-hidden" onClick={() => { setCurrentImageIndex(0); setShowGallery(true); }}>
+              <img src={mosaicImages[0] || coverUrl || ''} alt={business.name} className="w-full h-full object-cover group-hover:brightness-95 transition-all" />
             </div>
+            {/* Photo thumbnails row below - square aspect ratio */}
+            {/* {mosaicImages.length > 1 && (
+              <div className="flex gap-3 mt-3">
+                {mosaicImages.slice(1, 5).map((img, idx) => (
+                  <div key={idx} className="relative w-[140px] h-[140px] cursor-pointer rounded-lg overflow-hidden flex-shrink-0" onClick={() => { setCurrentImageIndex(idx + 1); setShowGallery(true); }}>
+                    <img src={img} alt="" className="w-full h-full object-cover hover:brightness-95 transition-all" />
+                    {idx === mosaicImages.slice(1, 5).length - 1 && galleryImages.length > 5 && (
+                      <div className="absolute inset-0 flex items-end p-2 justify-end">
+                        <span className="text-zinc-900 font-medium text-xs bg-white px-3 py-2.5 rounded-xl capitalize">{t.seeAllImages}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )} */}
             {/* Desktop top actions */}
             <div className="absolute top-8 right-10 flex items-center gap-2">
               <LanguageSwitcherDesktop />
-              <UserMenu locale={locale} />
+              <UserMenu locale={locale} user={savedUser} />
               <button onClick={handleShare} className="w-9 h-9 bg-white/90 dark:bg-zinc-800/90 backdrop-blur rounded-full flex items-center justify-center shadow-sm">
                 <Share2 size={16} className="text-zinc-900 dark:text-zinc-100" />
               </button>
@@ -532,7 +585,7 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
         /* No photos - show a minimal header with language toggle */
         <div className="max-w-[1350px] mx-auto px-4 lg:px-6 flex justify-end gap-2 mb-2">
           <LanguageSwitcherDesktop className="shadow-none" />
-          <UserMenu locale={locale} />
+          <UserMenu locale={locale} user={savedUser} />
           <button onClick={handleShare} className="w-9 h-9 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center">
             <Share2 size={16} className="text-zinc-900 dark:text-zinc-100" />
           </button>
@@ -542,95 +595,89 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
         </div>
       )}
 
-      {/* Business Info Header */}
-      <div className="max-w-[1350px] mx-auto px-4 lg:px-6 mt-5 lg:mb-4">
-        <h1 className="text-2xl lg:text-4xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">
-          {business.name}
-        </h1>
-
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 mt-1">
-          {/* Rating */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Star key={star} size={18} className="text-yellow-500 fill-yellow-500" />
-              ))}
-            </div>
-            <span className="font-bold text-zinc-900 dark:text-zinc-100 text-base">{business.rating || '5.0'}</span>
-            <span className="text-base text-zinc-500 dark:text-zinc-400">({business.reviews_count || 248})</span>
-          </div>
-
-          <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
-
-          {/* Open/Closed */}
-          {openStatus && closingTime ? (
-            <span className="text-base font-medium text-green-600 dark:text-green-400">
-              {t.openUntil.replace('{{time}}', closingTime)}
-            </span>
-          ) : (
-            <span className="text-base font-medium text-red-500 dark:text-red-400">{t.closedNow}</span>
-          )}
-
-          {/* Location */}
-          {business.location?.address && (
-            <span className="text-base text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
-              <MapPin size={15} />
-              {business.location.address}
-            </span>
-          )}
-
-          {/* Distance */}
-          {distanceLoading && (
-            <>
-              <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
-              <span className="inline-block w-24 h-4 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse" />
-            </>
-          )}
-          {distance && !distanceLoading && (
-            <>
-              <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
-              <span className="text-base text-zinc-500 dark:text-zinc-400">
-                {t.distanceAway.replace('{{distance}}', `${distance.distance} ${distance.metric}`)}
-              </span>
-            </>
-          )}
-          {distanceDenied && !distance && !distanceLoading && (
-            <>
-              <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
-              <button
-                onClick={() => fetchDistance(true)}
-                className="text-base text-primary hover:underline flex items-center gap-1"
-              >
-                <MapPin size={14} />
-                {t.showDistance}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ===== LOGGED-IN USER ===== */}
-      {savedUser && (
-        <div className="max-w-[1350px] mx-auto px-4 lg:px-6 mt-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/5 dark:bg-primary/10 rounded-full">
-            <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center">
-              <Phone size={12} className="text-primary" />
-            </div>
-            <span className="text-sm text-zinc-700 dark:text-zinc-300">
-              {savedUser.first_name || savedUser.last_name
-                ? [savedUser.first_name, savedUser.last_name].filter(Boolean).join(' ')
-                : `+${savedUser.phone}`}
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* ===== MAIN CONTENT ===== */}
       <div className="max-w-[1350px] mx-auto px-4 lg:px-6 pb-8">
         <div className="lg:grid lg:grid-cols-3 lg:gap-5">
 
           {/* ===== LEFT COLUMN: Services ===== */}
           <div className="lg:col-span-2 pt-6">
+
+
+            {/* Business Info Header */}
+            <div className="mb-4 lg:mb-6 flex items-start gap-4">
+              {business.avatar_url && (
+                <img
+                  src={business.avatar_url}
+                  alt={business.name}
+                  className="w-20 h-20 lg:w-24 lg:h-24 rounded-lg object-cover flex-shrink-0 border border-zinc-200 dark:border-zinc-700"
+                />
+              )}
+              <div className="min-w-0">
+                <h1 className="text-2xl lg:text-4xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">
+                  {business.name}
+                </h1>
+
+                {(geoAddress || business.location?.address) && (
+                  <p className="text-base text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5 mt-1">
+                    {geoAddress || business.location?.address}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 mt-1">
+                {/* Rating */}
+                {/* <div className="flex items-center gap-1.5">
+                  <div className="flex">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star key={star} size={18} className="text-yellow-500 fill-yellow-500" />
+                    ))}
+                  </div>
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100 text-base">{business.rating || '5.0'}</span>
+                  <span className="text-base text-zinc-500 dark:text-zinc-400">({business.reviews_count || 248})</span>
+                </div> */}
+
+                {/* <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span> */}
+
+                {/* Open/Closed */}
+                {openStatus && closingTime ? (
+                  <span className="text-base font-medium text-green-600 dark:text-green-400">
+                    {t.openUntil.replace('{{time}}', closingTime)}
+                  </span>
+                ) : (
+                  <span className="text-base font-medium text-red-500 dark:text-red-400">{t.closedNow}</span>
+                )}
+
+
+                {/* Distance */}
+                {distanceLoading && (
+                  <>
+                    <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
+                    <span className="inline-block w-24 h-4 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse" />
+                  </>
+                )}
+                {distance && !distanceLoading && (
+                  <>
+                    <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
+                    <span className="text-base text-zinc-500 dark:text-zinc-400">
+                      {t.distanceAway.replace('{{distance}}', `${distance.distance} ${distance.metric}`)}
+                    </span>
+                  </>
+                )}
+                {distanceDenied && !distance && !distanceLoading && (
+                  <>
+                    <span className="text-zinc-300 dark:text-zinc-600 text-base">&middot;</span>
+                    <button
+                      onClick={() => fetchDistance(true)}
+                      className="text-base text-primary hover:underline flex items-center gap-1"
+                    >
+                      <MapPin size={14} />
+                      {t.showDistance}
+                    </button>
+                  </>
+                )}
+              </div>
+              </div>
+            </div>
+
             <div className="pt-2 pb-4">
               <h2 className="text-xl lg:text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t.services}</h2>
             </div>
@@ -664,36 +711,36 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
                   <div key={category} className="mb-6 py-2">
                     <div className='flex flex-col gap-4'>
                       {categoryServices.map((service, index) => (
-                          <div
-                            key={service.id}
-                            className={`flex items-start justify-between lg:px-6 lg:py-5 lg:rounded-xl overflow-hidden transition-all duration-100 ease-out lg:border lg:border-zinc-300 lg:dark:border-zinc-800 lg:hover:border-zinc-400 lg:dark:hover:border-zinc-600 lg:hover:shadow-sm ${categoryServices.length - 1 === index ? '' : 'border-b pb-4 border-zinc-300 dark:border-zinc-800'}`}
-                          >
-                            <div className="flex-1 min-w-0 pr-4">
-                              <h4 className="text-base lg:text-lg font-semibold line-clamp-1 text-zinc-900 dark:text-zinc-100">
-                                {getText(service.name)}
-                              </h4>
-                              {service.description && getText(service.description) && (
-                                <p className="text-sm lg:text-base text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 w-[90%]">
-                                  {getText(service.description)}
-                                </p>
-                              )}
-                              <p className="text-sm lg:text-base text-zinc-400 mt-3">
-                                {formatDuration(service.duration_minutes)}
+                        <div
+                          key={service.id}
+                          className={`flex items-start justify-between lg:px-6 lg:py-5 lg:rounded-xl overflow-hidden transition-all duration-100 ease-out lg:border lg:border-zinc-300 lg:dark:border-zinc-800 lg:hover:border-zinc-400 lg:dark:hover:border-zinc-600 lg:hover:shadow-sm ${categoryServices.length - 1 === index ? '' : 'border-b pb-4 border-zinc-300 dark:border-zinc-800'}`}
+                        >
+                          <div className="flex-1 min-w-0 pr-4">
+                            <h4 className="text-base lg:text-lg font-semibold line-clamp-1 text-zinc-900 dark:text-zinc-100">
+                              {getText(service.name)}
+                            </h4>
+                            {service.description && getText(service.description) && (
+                              <p className="text-sm lg:text-base text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 w-[90%]">
+                                {getText(service.description)}
                               </p>
-                            </div>
-                            <div className="text-end">
-                              <h4 className="text-base lg:text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                                {formatPrice(service.price)} {t.sum}
-                              </h4>
-                              <button
-                                onClick={() => handleBookService(service)}
-                                className="mt-2 px-3 py-1.5 lg:px-4 lg:py-2 text-sm lg:text-base font-medium rounded-full shadow-sm transition-all bg-primary text-white hover:bg-primary/90"
-                              >
-                                {t.book}
-                              </button>
-                            </div>
+                            )}
+                            <p className="text-sm lg:text-base text-zinc-400 mt-3">
+                              {formatDuration(service.duration_minutes)}
+                            </p>
                           </div>
-                        ))}
+                          <div className="text-end">
+                            <h4 className="text-base lg:text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                              {formatPrice(service.price)} {t.sum}
+                            </h4>
+                            <button
+                              onClick={() => handleBookService(service)}
+                              className="mt-2 px-3 py-1.5 lg:px-4 lg:py-2 text-sm lg:text-base font-medium rounded-full shadow-sm transition-all bg-primary text-white hover:bg-primary/90"
+                            >
+                              {t.book}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))
@@ -703,6 +750,38 @@ export function TenantPage({ business, services, photos, tenantSlug, businessId,
                 </div>
               )}
             </div>
+
+            {/* ===== EMPLOYEES LIST ===== */}
+            {employees.length > 0 && (
+              <div className="mt-8">
+                <div className="pt-2 pb-4 mb-2">
+                  <h2 className="text-xl lg:text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t.specialists}</h2>
+                </div>
+                <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                  {employees.map((employee) => {
+                    const name = [employee.first_name, employee.last_name].filter(Boolean).join(' ');
+                    return (
+                      <div
+                        key={employee.id}
+                        className="flex flex-col items-center flex-shrink-0 w-[100px]"
+                      >
+                        <div className="w-[72px] h-[72px] lg:w-[80px] lg:h-[80px] rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border-2 border-zinc-200 dark:border-zinc-700">
+                          <User size={32} className="text-zinc-400 dark:text-zinc-500" />
+                        </div>
+                        <p className="text-base font-medium text-zinc-900 dark:text-zinc-100 mt-2 text-center line-clamp-1">
+                          {name || employee.position}
+                        </p>
+                        {name && employee.position && (
+                          <p className="text-sm lg:text-base text-zinc-500 dark:text-zinc-400 text-center line-clamp-1">
+                            {employee.position}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ===== RIGHT: SIDEBAR (Desktop) ===== */}

@@ -28,13 +28,46 @@ async function setAuthCookies(
   refreshToken: string,
   user: { phone: string; first_name: string; last_name: string }
 ) {
+  const opts = getCookieOptions(24 * 60 * 60)
+  console.log('[setAuthCookies] cookie options:', { domain: opts.domain, secure: opts.secure, NODE_ENV: process.env.NODE_ENV })
   const cookieStore = await cookies()
-  cookieStore.set('blyss_access_token', accessToken, getCookieOptions(24 * 60 * 60))
+  cookieStore.set('blyss_access_token', accessToken, opts)
   cookieStore.set('blyss_refresh_token', refreshToken, getCookieOptions(30 * 24 * 60 * 60))
   cookieStore.set('blyss_user', JSON.stringify(user), getCookieOptions(365 * 24 * 60 * 60, false))
 }
 
 // ─── Existing actions ───
+
+export async function reverseGeocode(lat: number, lng: number, locale: string) {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=${locale}&zoom=18&addressdetails=1`,
+      {
+        headers: { 'User-Agent': 'blyss.uz' },
+        next: { revalidate: 86400 },
+      }
+    )
+    if (!response.ok) return null
+    const data = await response.json()
+    const addr = data.address
+    // Build a detailed address: house_number + road + neighbourhood + district + city
+    const street: string[] = []
+    if (addr.house_number) street.push(addr.house_number)
+    if (addr.road) street.push(addr.road)
+    else if (addr.pedestrian) street.push(addr.pedestrian)
+    else if (addr.footway) street.push(addr.footway)
+
+    const parts: string[] = []
+    if (street.length > 0) parts.push(street.join(' '))
+    if (addr.neighbourhood) parts.push(addr.neighbourhood)
+    else if (addr.suburb) parts.push(addr.suburb)
+    else if (addr.district) parts.push(addr.district)
+    if (addr.city || addr.town || addr.village) parts.push(addr.city || addr.town || addr.village)
+    return parts.length > 0 ? parts.join(', ') : (data.display_name as string) || null
+  } catch {
+    return null
+  }
+}
 
 export async function getDistance(slug: string, lat: number, lng: number) {
   try {
@@ -234,7 +267,7 @@ export async function createBooking(
 ) {
   try {
     const cookieStore = await cookies()
-    const accessToken = cookieStore.get('blyss_access_token')?.value
+    let accessToken = cookieStore.get('blyss_access_token')?.value
 
     if (!accessToken) {
       return { success: false as const, error: 'Not authenticated', error_code: 'NO_TOKEN' }
@@ -248,7 +281,7 @@ export async function createBooking(
     })
 
     const safeId = validateSlug(businessId)
-    const response = await signedFetch(
+    let response = await signedFetch(
       `${API_URL}/public/businesses/${safeId}/bookings-v2`,
       {
         method: 'POST',
@@ -258,6 +291,26 @@ export async function createBooking(
         },
       }
     )
+
+    // If token expired, refresh and retry once
+    if (response.status === 401) {
+      const refreshed = await refreshTokens()
+      if (refreshed) {
+        accessToken = (await cookies()).get('blyss_access_token')?.value
+        if (accessToken) {
+          response = await signedFetch(
+            `${API_URL}/public/businesses/${safeId}/bookings-v2`,
+            {
+              method: 'POST',
+              body,
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          )
+        }
+      }
+    }
 
     const data = await response.json()
     if (!response.ok) {
@@ -276,8 +329,49 @@ export async function createBooking(
 export async function getAuthStatus() {
   try {
     const cookieStore = await cookies()
-    const accessToken = cookieStore.get('blyss_access_token')?.value
-    return { authenticated: !!accessToken }
+    let accessToken = cookieStore.get('blyss_access_token')?.value
+    if (!accessToken) return { authenticated: false }
+
+    // Verify token is valid and user exists by calling /public/me
+    let response = await signedFetch(`${API_URL}/public/me`, {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    // If token expired, try refreshing
+    if (response.status === 401) {
+      const refreshed = await refreshTokens()
+      if (!refreshed) {
+        // Clear invalid cookies
+        cookieStore.delete('blyss_access_token')
+        cookieStore.delete('blyss_refresh_token')
+        cookieStore.delete('blyss_user')
+        return { authenticated: false }
+      }
+      accessToken = (await cookies()).get('blyss_access_token')?.value
+      if (!accessToken) return { authenticated: false }
+      response = await signedFetch(`${API_URL}/public/me`, {
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+    }
+
+    if (!response.ok) {
+      cookieStore.delete('blyss_access_token')
+      cookieStore.delete('blyss_refresh_token')
+      cookieStore.delete('blyss_user')
+      return { authenticated: false }
+    }
+
+    const user = await response.json()
+    return {
+      authenticated: true,
+      user: {
+        phone: user.phone_number || '',
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+      },
+    }
   } catch {
     return { authenticated: false }
   }
@@ -337,18 +431,46 @@ export async function logout() {
 export async function getMyBookings(businessId?: string) {
   try {
     const cookieStore = await cookies()
-    const accessToken = cookieStore.get('blyss_access_token')?.value
+    let accessToken = cookieStore.get('blyss_access_token')?.value
+    console.log('[getMyBookings] accessToken exists:', !!accessToken, 'businessId:', businessId)
     if (!accessToken) return { bookings: [] }
 
     const params = businessId ? `?business_id=${businessId}` : ''
-    const response = await signedFetch(`${API_URL}/public/my-bookings${params}`, {
+    const url = `${API_URL}/public/my-bookings${params}`
+    console.log('[getMyBookings] fetching:', url)
+    let response = await signedFetch(url, {
       cache: 'no-store',
       headers: { Authorization: `Bearer ${accessToken}` },
     })
+    console.log('[getMyBookings] response status:', response.status)
 
-    if (!response.ok) return { bookings: [] }
-    return await response.json()
-  } catch {
+    // If token expired, try refreshing and retry once
+    if (response.status === 401) {
+      console.log('[getMyBookings] token expired, attempting refresh...')
+      const refreshed = await refreshTokens()
+      console.log('[getMyBookings] refresh result:', refreshed)
+      if (refreshed) {
+        accessToken = (await cookies()).get('blyss_access_token')?.value
+        if (accessToken) {
+          response = await signedFetch(url, {
+            cache: 'no-store',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          })
+          console.log('[getMyBookings] retry response status:', response.status)
+        }
+      }
+    }
+
+    if (!response.ok) {
+      const text = await response.text()
+      console.error('[getMyBookings] not ok:', response.status, text)
+      return { bookings: [] }
+    }
+    const data = await response.json()
+    console.log('[getMyBookings] success, bookings count:', data.bookings?.length)
+    return data
+  } catch (error) {
+    console.error('[getMyBookings] exception:', error)
     return { bookings: [] }
   }
 }

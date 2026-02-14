@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import type { Locale } from '@/lib/i18n'
 import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n'
 import { TenantPage } from './TenantPage'
-import { getSavedUser } from './actions'
+import { getAuthStatus } from './actions'
 
 interface MultilingualText {
   uz: string
@@ -27,6 +27,20 @@ interface Photo {
   order: number
 }
 
+interface Employee {
+  id: string
+  first_name: string | null
+  last_name: string | null
+  position: string
+  services: {
+    id: string
+    service_id: string
+    name: MultilingualText | null
+    price: number
+    duration_minutes: number
+  }[]
+}
+
 interface BusinessData {
   business: {
     id: string
@@ -44,9 +58,10 @@ interface BusinessData {
   }
   photos: Photo[]
   services: Service[]
+  employees: Employee[]
 }
 
-async function getBusinessData(tenantSlug: string): Promise<BusinessData | null> {
+async function getBusinessData(tenantSlug: string): Promise<{ data: BusinessData | null; status: number }> {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
     const response = await signedFetch(`${apiUrl}/public/businesses/${tenantSlug}/services`, {
@@ -56,13 +71,13 @@ async function getBusinessData(tenantSlug: string): Promise<BusinessData | null>
     if (!response.ok) {
       const text = await response.text()
       console.error(`[getBusinessData] ${response.status} ${response.statusText}:`, text)
-      return null
+      return { data: null, status: response.status }
     }
 
-    return await response.json()
+    return { data: await response.json(), status: 200 }
   } catch (error) {
     console.error('Failed to fetch business data:', error)
-    return null
+    return { data: null, status: 0 }
   }
 }
 
@@ -95,7 +110,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { tenant: tenantSlug, locale: localeParam } = await params
   const locale: Locale = isValidLocale(localeParam) ? localeParam : DEFAULT_LOCALE
-  const businessData = await getBusinessData(tenantSlug)
+  const { data: businessData } = await getBusinessData(tenantSlug)
 
   if (!businessData) {
     return {
@@ -159,7 +174,7 @@ export default async function Page({
   const { tenant: tenantSlug, locale: localeParam } = await params
   const locale: Locale = isValidLocale(localeParam) ? localeParam : DEFAULT_LOCALE
   const tenant = await getTenant()
-  const businessData = await getBusinessData(tenantSlug)
+  const { data: businessData, status } = await getBusinessData(tenantSlug)
 
   // Redirect to homepage if not accessed via subdomain or business not found
   if (!tenant.isTenant || tenant.slug !== tenantSlug) {
@@ -167,6 +182,20 @@ export default async function Page({
   }
 
   if (!businessData) {
+    if (status === 429) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-900">
+          <div className="text-center px-6">
+            <p className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">
+              {locale === 'uz' ? 'Juda ko\'p urinish' : 'Слишком много запросов'}
+            </p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
+              {locale === 'uz' ? '5 daqiqadan so\'ng qayta urinib ko\'ring' : 'Попробуйте снова через 5 минут'}
+            </p>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="flex min-h-screen items-center justify-center bg-white dark:bg-zinc-900">
         <p className="text-zinc-500">Business not found</p>
@@ -174,8 +203,9 @@ export default async function Page({
     )
   }
 
-  const { business, photos, services } = businessData
-  const savedUser = await getSavedUser()
+  const { business, photos, services, employees } = businessData
+  const authStatus = await getAuthStatus()
+  const savedUser = authStatus.authenticated && 'user' in authStatus ? authStatus.user : null
 
   const businessJsonLd = {
     '@context': 'https://schema.org',
@@ -229,6 +259,7 @@ export default async function Page({
     <TenantPage
       business={business}
       services={services}
+      employees={employees || []}
       photos={photos || []}
       tenantSlug={tenantSlug}
       businessId={business.id}

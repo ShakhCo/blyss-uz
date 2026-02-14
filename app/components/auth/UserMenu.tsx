@@ -1,19 +1,20 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { CalendarDays, LogOut } from 'lucide-react'
 import { LoginModal } from './LoginModal'
 import { logout } from '@/app/[locale]/[tenant]/actions'
 
-interface UserMenuProps {
-  locale: 'uz' | 'ru'
-}
-
 interface BlyssUser {
   phone: string
   first_name: string
   last_name: string
+}
+
+interface UserMenuProps {
+  locale: 'uz' | 'ru'
+  user: BlyssUser | null
 }
 
 const T: Record<'uz' | 'ru', Record<string, string>> = {
@@ -27,30 +28,6 @@ const T: Record<'uz' | 'ru', Record<string, string>> = {
     myBookings: 'Мои записи',
     logOut: 'Выйти',
   },
-}
-
-function parseCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
-  if (!match) return null
-  try {
-    return decodeURIComponent(match[2])
-  } catch {
-    return match[2]
-  }
-}
-
-function readUser(): BlyssUser | null {
-  try {
-    const raw = parseCookie('blyss_user')
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed.phone === 'string') {
-      return parsed as BlyssUser
-    }
-    return null
-  } catch {
-    return null
-  }
 }
 
 function getInitial(user: BlyssUser): string {
@@ -70,25 +47,17 @@ function getDisplayName(user: BlyssUser): string {
   return user.phone
 }
 
-export function UserMenu({ locale }: UserMenuProps) {
+export function UserMenu({ locale, user: initialUser }: UserMenuProps) {
   const t = T[locale]
-  const [user, setUser] = useState<BlyssUser | null>(null)
+  const [user, setUser] = useState<BlyssUser | null>(initialUser)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [loginModalOpen, setLoginModalOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const refreshUser = useCallback(() => {
-    setUser(readUser())
-  }, [])
-
-  // Read cookie on mount and on window focus
+  // Sync with server prop
   useEffect(() => {
-    refreshUser()
-
-    const handleFocus = () => refreshUser()
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [refreshUser])
+    setUser(initialUser)
+  }, [initialUser])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -107,12 +76,12 @@ export function UserMenu({ locale }: UserMenuProps) {
   const handleLogout = async () => {
     setDropdownOpen(false)
     await logout()
-    window.location.reload()
+    setUser(null)
   }
 
   const handleLoginSuccess = () => {
     setLoginModalOpen(false)
-    refreshUser()
+    window.location.reload()
   }
 
   // Logged out state
