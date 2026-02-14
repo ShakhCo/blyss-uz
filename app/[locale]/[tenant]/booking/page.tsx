@@ -84,7 +84,7 @@ export default async function Page({
   const selectedServices = allServices.filter((s: Service) => serviceIds.includes(s.id))
   const employees: Employee[] = businessData.employees || []
   const authStatus = await getAuthStatus()
-  const savedUser = authStatus.authenticated && 'user' in authStatus ? authStatus.user : null
+  const savedUser = (authStatus.authenticated && 'user' in authStatus && authStatus.user) ? authStatus.user as { phone: string; first_name: string; last_name: string } : null
 
   if (selectedServices.length === 0) {
     return (

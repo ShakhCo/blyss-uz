@@ -18,9 +18,15 @@ function validateSlug(slug: string): string {
 // ─── Cookie helpers ───
 
 function getCookieOptions(maxAge: number, httpOnly = true) {
-  const cookieDomain = process.env.NODE_ENV === 'production' ? '.blyss.uz' : undefined
-  const isSecure = process.env.NODE_ENV === 'production'
-  return { httpOnly, secure: isSecure, sameSite: 'lax' as const, maxAge, path: '/', domain: cookieDomain }
+  const isProd = process.env.NODE_ENV === 'production'
+  return {
+    httpOnly,
+    secure: isProd,
+    sameSite: 'lax' as const,
+    maxAge,
+    path: '/',
+    ...(isProd && { domain: '.blyss.uz' }),
+  }
 }
 
 async function setAuthCookies(

@@ -205,7 +205,7 @@ export default async function Page({
 
   const { business, photos, services, employees } = businessData
   const authStatus = await getAuthStatus()
-  const savedUser = authStatus.authenticated && 'user' in authStatus ? authStatus.user : null
+  const savedUser = (authStatus.authenticated && 'user' in authStatus && authStatus.user) ? authStatus.user as { phone: string; first_name: string; last_name: string } : null
 
   const businessJsonLd = {
     '@context': 'https://schema.org',
