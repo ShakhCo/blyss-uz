@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://api.blyss.uz",
+              "connect-src 'self' https://api.blyss.uz https://www.googleapis.com",
               "frame-src https://www.google.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",
