@@ -568,11 +568,15 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
               )}
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 mt-1.5">
                 {openStatus && closingTime ? (
-                  <span className="text-sm lg:text-base font-medium text-green-600 dark:text-green-400">
+                  <span className="text-sm lg:text-base font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <Clock size={14} className="shrink-0" />
                     {t.openUntil.replace('{{time}}', closingTime)}
                   </span>
                 ) : (
-                  <span className="text-sm lg:text-base font-medium text-red-500 dark:text-red-400">{t.closedNow}</span>
+                  <span className="text-sm lg:text-base font-medium text-red-500 dark:text-red-400 flex items-center gap-1">
+                    <Clock size={14} className="shrink-0" />
+                    {t.closedNow}
+                  </span>
                 )}
                 {distanceLoading && (
                   <>
