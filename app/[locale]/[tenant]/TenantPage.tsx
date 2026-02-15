@@ -514,7 +514,7 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
             alt={business.name}
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between lg:hidden">
+          <div className="absolute top-3 right-3 lg:hidden">
             <LanguageSwitcher />
           </div>
           <div className="absolute top-4 right-4 hidden lg:flex items-center gap-2">
