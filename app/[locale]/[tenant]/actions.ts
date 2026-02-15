@@ -481,6 +481,48 @@ export async function getMyBookings(businessId?: string) {
   }
 }
 
+export async function cancelBooking(bookingId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const cookieStore = await cookies()
+    let accessToken = cookieStore.get('blyss_access_token')?.value
+    if (!accessToken) return { success: false, error: 'Not authenticated' }
+
+    let response = await signedFetch(
+      `${API_URL}/public/my-bookings/${bookingId}/cancel`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    )
+
+    if (response.status === 401) {
+      const refreshed = await refreshTokens()
+      if (refreshed) {
+        accessToken = (await cookies()).get('blyss_access_token')?.value
+        if (accessToken) {
+          response = await signedFetch(
+            `${API_URL}/public/my-bookings/${bookingId}/cancel`,
+            {
+              method: 'PATCH',
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          )
+        }
+      }
+    }
+
+    if (!response.ok) {
+      const data = await response.json()
+      return { success: false, error: data.error || 'Failed to cancel booking' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('[cancelBooking] error:', error)
+    return { success: false, error: 'Failed to cancel booking' }
+  }
+}
+
 export async function refreshTokens() {
   try {
     const cookieStore = await cookies()

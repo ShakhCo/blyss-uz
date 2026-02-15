@@ -14,7 +14,7 @@ export const Navbar = ({ locale = 'ru', user = null }: NavbarProps) => {
     <nav className="absolute top-0 left-0 right-0 z-50">
       <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         {/* Left: Logo */}
-        <div className="text-xl font-bold text-black">BLYSS</div>
+        <div className="text-xl font-bold text-black dark:text-white">BLYSS</div>
 
         {/* Right: Navigation Items */}
         <div className="flex items-center gap-3">

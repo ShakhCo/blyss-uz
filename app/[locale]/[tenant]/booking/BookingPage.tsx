@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import type { Locale } from '@/lib/i18n';
 import {
   ChevronLeft,
@@ -285,6 +285,10 @@ export function BookingPage({
   primaryColor = '#088395',
 }: BookingPageProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const pathSegments = pathname.split('/').filter(Boolean);
+  const isDirectRoute = pathSegments[1] === 'b';
+  const basePath = isDirectRoute ? `/${locale}/b/${pathSegments[2]}` : `/${locale}`;
   const t = UI[locale];
 
   // ─── State ───
@@ -660,7 +664,7 @@ export function BookingPage({
   };
 
   const goBack = () => {
-    router.push(`/${locale}`);
+    router.push(basePath);
   };
 
   // ─── Render ───
@@ -700,7 +704,7 @@ export function BookingPage({
             <div className="flex gap-3 justify-center">
               {errorCode === 'BOOKING_LIMIT_REACHED' && (
                 <button
-                  onClick={() => { setError(''); setErrorCode(''); router.push(`/${locale}/bookings`); }}
+                  onClick={() => { setError(''); setErrorCode(''); router.push(`${basePath}/bookings`); }}
                   className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors"
                 >
                   {t.viewBookings}
@@ -1023,13 +1027,13 @@ export function BookingPage({
 
             <div className="space-y-3">
               <button
-                onClick={() => router.push(`/${locale}/bookings`)}
+                onClick={() => router.push(`${basePath}/bookings`)}
                 className="w-full py-3.5 bg-primary text-white rounded-2xl font-semibold text-base lg:text-lg transition-colors hover:bg-primary/90"
               >
                 {t.viewBookings}
               </button>
               <button
-                onClick={() => router.push(`/${locale}`)}
+                onClick={() => router.push(basePath)}
                 className="w-full py-3.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 rounded-2xl font-semibold text-base lg:text-lg transition-colors hover:bg-gray-200 dark:hover:bg-zinc-700"
               >
                 {t.backToBusiness}

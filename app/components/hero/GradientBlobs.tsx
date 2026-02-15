@@ -29,13 +29,22 @@ export const GradientBlobs = () => {
 
   const [config, setConfig] = useState<ReturnType<typeof pickRandom> | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
     setConfig(pickRandom());
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
     window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
+
+    // Watch for dark mode changes
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.getAttribute('data-color-scheme') === 'dark');
+    });
+    setIsDark(document.documentElement.getAttribute('data-color-scheme') === 'dark');
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-scheme'] });
+
+    return () => { window.removeEventListener('resize', check); observer.disconnect(); };
   }, [pickRandom]);
 
   useEffect(() => {
@@ -59,6 +68,7 @@ export const GradientBlobs = () => {
 
   const { preset, rose: roseColor, blue: blueColor } = config;
   const scale = isMobile ? 0.5 : 1;
+  const blobOpacity = isDark ? 0.07 : 0.4;
 
   return (
     <div className="absolute inset-0 pointer-events-none flex items-start justify-center z-0">
@@ -82,7 +92,7 @@ export const GradientBlobs = () => {
             backgroundColor: roseColor,
             filter: `blur(${isMobile ? 100 : 150}px)`,
             borderRadius: '50%',
-            opacity: 0.4,
+            opacity: blobOpacity,
           }}
         />
         {/* Blue blob */}
@@ -96,7 +106,7 @@ export const GradientBlobs = () => {
             backgroundColor: blueColor,
             filter: `blur(${isMobile ? 100 : 150}px)`,
             borderRadius: '50%',
-            opacity: 0.4,
+            opacity: blobOpacity,
           }}
         />
       </div>

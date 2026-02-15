@@ -1,39 +1,33 @@
-import { getTenant } from '@/lib/tenant'
 import { redirect } from 'next/navigation'
 import type { Locale } from '@/lib/i18n'
 import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n'
-import { getMyBookings, getAuthStatus, cancelBooking } from '../actions'
+import { getMyBookings, getAuthStatus, cancelBooking } from '../../../[tenant]/actions'
 import { BookingsList } from '@/app/components/bookings/BookingsList'
 import { ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { signedFetch } from '@/lib/api'
 import { BottomNav } from '@/app/components/layout/BottomNav'
-import { BookingsLoginPrompt } from './BookingsLoginPrompt'
-import { BookingsUserInfo } from './BookingsUserInfo'
+import { BookingsLoginPrompt } from '../../../[tenant]/bookings/BookingsLoginPrompt'
+import { BookingsUserInfo } from '../../../[tenant]/bookings/BookingsUserInfo'
 
 const T = {
   uz: {
     myBookings: 'Mening buyurtmalarim',
-    loginRequired: 'Buyurtmalarni ko\'rish uchun tizimga kiring',
-    back: 'Orqaga',
-    otherBookings: (count: number) =>
-      `Sizda boshqa bizneslardan ${count} ta buyurtma bor.`,
-    viewAll: 'Barchasini ko\'rish',
   },
   ru: {
     myBookings: 'Мои записи',
-    loginRequired: 'Войдите, чтобы увидеть записи',
-    back: 'Назад',
-    otherBookings: (count: number) =>
-      `У вас ${count} записей в других заведениях.`,
-    viewAll: 'Посмотреть все',
   },
 } as const
 
-async function getBusinessInfo(tenantSlug: string): Promise<{ id: string | null; primaryColor: string | null }> {
+function extractBusinessId(slug: string): string {
+  const lastDash = slug.lastIndexOf('-')
+  return lastDash !== -1 ? slug.slice(lastDash + 1) : slug
+}
+
+async function getBusinessInfo(businessId: string): Promise<{ id: string | null; primaryColor: string | null }> {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-    const response = await signedFetch(`${apiUrl}/public/businesses/${tenantSlug}/services`, {
+    const response = await signedFetch(`${apiUrl}/public/businesses/${businessId}/services`, {
       next: { revalidate: 60 },
     })
     if (!response.ok) return { id: null, primaryColor: null }
@@ -47,16 +41,12 @@ async function getBusinessInfo(tenantSlug: string): Promise<{ id: string | null;
 export default async function BookingsPage({
   params,
 }: {
-  params: Promise<{ tenant: string; locale: string }>
+  params: Promise<{ slug: string; locale: string }>
 }) {
-  const { tenant: tenantSlug, locale: localeParam } = await params
+  const { slug, locale: localeParam } = await params
   const locale: Locale = isValidLocale(localeParam) ? localeParam : DEFAULT_LOCALE
-  const tenant = await getTenant()
+  const businessId = extractBusinessId(slug)
   const t = T[locale]
-
-  if (!tenant.isTenant || tenant.slug !== tenantSlug) {
-    redirect(`/${locale}`)
-  }
 
   const authResult = await getAuthStatus()
   if (!authResult.authenticated) {
@@ -66,22 +56,20 @@ export default async function BookingsPage({
 
   const [{ bookings: allBookings }, businessInfo] = await Promise.all([
     getMyBookings(),
-    getBusinessInfo(tenantSlug),
+    getBusinessInfo(businessId),
   ])
-  const { id: businessId, primaryColor } = businessInfo
+  const { id: resolvedBusinessId, primaryColor } = businessInfo
 
-  const tenantBookings = businessId
-    ? allBookings.filter((b: { business_id: string }) => b.business_id === businessId)
+  const tenantBookings = resolvedBusinessId
+    ? allBookings.filter((b: { business_id: string }) => b.business_id === resolvedBusinessId)
     : allBookings
-  const otherCount = allBookings.length - tenantBookings.length
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-900" style={primaryColor ? { '--primary': primaryColor } as React.CSSProperties : undefined}>
-      {/* Header */}
       <div className="sticky top-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-lg z-30 border-b border-zinc-200 dark:border-zinc-800">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link
-            href={`/${locale}`}
+            href={`/${locale}/b/${slug}`}
             className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <ChevronLeft size={20} className="text-zinc-900 dark:text-zinc-100" />
@@ -90,24 +78,12 @@ export default async function BookingsPage({
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
         {user && (
           <div className="mb-4">
             <BookingsUserInfo user={user} locale={locale} />
           </div>
         )}
-        {/* {otherCount > 0 && (
-          <div className="mb-4 p-4 bg-[#088395]/5 dark:bg-[#088395]/10 rounded-2xl flex items-center justify-between gap-3">
-            <p className="text-base text-zinc-700 dark:text-zinc-300">{t.otherBookings(otherCount)}</p>
-            <a
-              href={`https://blyss.uz/${locale}/my-bookings`}
-              className="text-base font-semibold text-[#088395] whitespace-nowrap"
-            >
-              {t.viewAll} →
-            </a>
-          </div>
-        )} */}
         <BookingsList bookings={tenantBookings} locale={locale} showBusinessName={false} onCancel={cancelBooking} />
       </div>
 

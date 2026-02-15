@@ -25,18 +25,18 @@ export function VenueSection({ title, venues }: VenueSectionProps) {
           <button
             onClick={() => carouselRef.current?.scrollLeft()}
             disabled={!showLeft}
-            className="p-2 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             aria-label="Scroll left"
           >
-            <ChevronLeft size={20} className="text-gray-800" />
+            <ChevronLeft size={20} className="text-gray-800 dark:text-gray-200" />
           </button>
           <button
             onClick={() => carouselRef.current?.scrollRight()}
             disabled={!showRight}
-            className="p-2 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             aria-label="Scroll right"
           >
-            <ChevronRight size={20} className="text-gray-800" />
+            <ChevronRight size={20} className="text-gray-800 dark:text-gray-200" />
           </button>
         </div>
       </div>

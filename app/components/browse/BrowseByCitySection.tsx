@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import { citiesByCountry } from '@/data/cities';
 import { CountryTabs } from './CountryTabs';
+import { useLocale } from '@/lib/locale-context';
+import translations from '@/lib/translations';
 
 export function BrowseByCitySection() {
+  const locale = useLocale();
   const countries = Object.keys(citiesByCountry);
   const [activeCountry, setActiveCountry] = useState<string>(countries[0]);
 
@@ -12,7 +15,7 @@ export function BrowseByCitySection() {
 
   return (
     <section className="max-w-7xl mx-auto px-6 py-16">
-      <h2 className="text-2xl font-bold mb-6">Browse by city</h2>
+      <h2 className="text-2xl font-bold mb-6">{translations.browse.title[locale]}</h2>
 
       <CountryTabs
         countries={countries}
@@ -29,9 +32,12 @@ export function BrowseByCitySection() {
                 <li key={service.slug}>
                   <a
                     href={`/${activeCountry.toLowerCase().replace(/\s+/g, '-')}/${city.name.toLowerCase().replace(/\s+/g, '-')}/${service.slug}`}
-                    className="text-sm text-gray-600 hover:text-black transition-colors"
+                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
                   >
-                    {service.name} in {city.name}
+                    {locale === 'ru'
+                      ? `${service.name} ${translations.browse.inCity[locale]} ${city.name}`
+                      : `${city.name} ${service.name}`
+                    }
                   </a>
                 </li>
               ))}

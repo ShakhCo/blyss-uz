@@ -1,7 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import type { Locale } from '@/lib/i18n'
-import { Calendar, ChevronRight, Clock } from 'lucide-react'
+import { Calendar, ChevronRight, X, Loader2 } from 'lucide-react'
 
 interface MultilingualText {
   uz: string
@@ -34,6 +35,7 @@ interface BookingsListProps {
   bookings: Booking[]
   locale: Locale
   showBusinessName?: boolean
+  onCancel?: (bookingId: string) => Promise<{ success: boolean; error?: string }>
 }
 
 const MONTH_NAMES: Record<Locale, string[]> = {
@@ -46,6 +48,10 @@ const T: Record<Locale, Record<string, string>> = {
     noBookings: 'Buyurtmalar yo\'q',
     noBookingsDesc: 'Siz hali hech narsa band qilmagansiz',
     cancelled: 'Bekor qilingan',
+    cancel: 'Bekor qilish',
+    confirmCancel: 'Rostdan bekor qilasizmi?',
+    yes: 'Ha',
+    no: "Yo'q",
     sum: "so'm",
     min: 'daq',
   },
@@ -53,6 +59,10 @@ const T: Record<Locale, Record<string, string>> = {
     noBookings: 'Нет записей',
     noBookingsDesc: 'Вы ещё ничего не бронировали',
     cancelled: 'Отменено',
+    cancel: 'Отменить',
+    confirmCancel: 'Вы уверены, что хотите отменить?',
+    yes: 'Да',
+    no: 'Нет',
     sum: 'сум',
     min: 'мин',
   },
@@ -96,10 +106,26 @@ function formatDate(dateStr: string, locale: Locale): string {
   return `${day} ${MONTH_NAMES[locale][month]}`
 }
 
-export function BookingsList({ bookings, locale, showBusinessName = false }: BookingsListProps) {
+export function BookingsList({ bookings, locale, showBusinessName = false, onCancel }: BookingsListProps) {
   const t = T[locale]
+  const [localBookings, setLocalBookings] = useState(bookings)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
-  if (bookings.length === 0) {
+  const handleCancel = async (bookingId: string) => {
+    if (!onCancel) return
+    setCancellingId(bookingId)
+    const result = await onCancel(bookingId)
+    if (result.success) {
+      setLocalBookings(prev =>
+        prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b)
+      )
+    }
+    setCancellingId(null)
+    setConfirmingId(null)
+  }
+
+  if (localBookings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4">
         <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
@@ -113,8 +139,12 @@ export function BookingsList({ bookings, locale, showBusinessName = false }: Boo
 
   return (
     <div className='flex flex-col w-full gap-4'>
-      {bookings.map((booking) => {
+      {localBookings.map((booking) => {
         const isCancelled = booking.status === 'cancelled'
+        const isCompleted = booking.status === 'completed'
+        const canCancel = onCancel && !isCancelled && !isCompleted
+        const isConfirming = confirmingId === booking.id
+        const isCancelling = cancellingId === booking.id
         const items = booking.items || []
         const timeRange = items.length > 0
           ? `${secondsToTime(items[0].start_time)} – ${secondsToTime(items[items.length - 1].end_time)}`
@@ -172,6 +202,42 @@ export function BookingsList({ bookings, locale, showBusinessName = false }: Boo
                 {formatPrice(booking.total_price)} {t.sum}
               </span>
             </div>
+
+            {/* Cancel */}
+            {canCancel && (
+              <div className="mt-3 lg:mt-4 pt-2.5 lg:pt-3 border-t border-zinc-200 dark:border-zinc-700">
+                {isConfirming ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm lg:text-base text-zinc-600 dark:text-zinc-400">{t.confirmCancel}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleCancel(booking.id)}
+                        disabled={isCancelling}
+                        className="px-3 py-1 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {isCancelling && <Loader2 size={14} className="animate-spin" />}
+                        {t.yes}
+                      </button>
+                      <button
+                        onClick={() => setConfirmingId(null)}
+                        disabled={isCancelling}
+                        className="px-3 py-1 rounded-lg text-sm font-medium bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600 disabled:opacity-50"
+                      >
+                        {t.no}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingId(booking.id)}
+                    className="flex items-center gap-1.5 text-sm lg:text-base text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                  >
+                    <X size={16} />
+                    {t.cancel}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )
       })}

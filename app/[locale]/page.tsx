@@ -4,15 +4,9 @@ import { isValidLocale, DEFAULT_LOCALE } from '@/lib/i18n';
 import { Navbar } from "../components/layout/Navbar";
 import { HeroSection } from "../components/hero/HeroSection";
 import { GradientBlobs } from "../components/hero/GradientBlobs";
-import { VenueSection } from "../components/venues/VenueSection";
 import { ForBusinessSection } from "../components/business/ForBusinessSection";
 import { BrowseByCitySection } from "../components/browse/BrowseByCitySection";
-import {
-  recentlyViewed,
-  recommended,
-  newVenues,
-  trending,
-} from "../../data/venues";
+import { NearestBusinesses } from "../components/venues/NearestBusinesses";
 
 const SITE_URL = 'https://blyss.uz';
 
@@ -121,42 +115,36 @@ const jsonLd = {
   inLanguage: ['ru', 'uz'],
 };
 
-export default function Home() {
+export default async function Home({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}) {
+  const { locale: localeParam } = await params;
+  const locale: Locale = isValidLocale(localeParam) ? localeParam : DEFAULT_LOCALE;
+
   return (
-    <div className="min-h-screen bg-white text-black">
+    <div className="relative min-h-screen bg-white dark:bg-gray-950 text-black dark:text-gray-100 overflow-x-hidden">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <Navbar />
 
-      <main>
-        {/* Hero + Recently viewed share the gradient background */}
-        <div className="relative overflow-hidden">
-          <GradientBlobs />
+      <GradientBlobs />
 
-          <div className="relative z-[1]">
-            <HeroSection />
-            <VenueSection title="Recently viewed" venues={recentlyViewed} />
-          </div>
+      <div className="relative z-[1]">
+        <Navbar />
 
-          {/* Fade out at the bottom */}
-          <div
-            className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none z-10"
-            style={{ background: 'linear-gradient(to bottom, transparent, white)' }}
-          />
-        </div>
+        <main>
+          <HeroSection />
 
-        <div className="flex flex-col w-full gap-6 mt-4">
-          <VenueSection title="Recommended" venues={recommended} />
-          <VenueSection title="New to Blyss" venues={newVenues} />
-          <VenueSection title="Trending" venues={trending} />
-        </div>
+          <NearestBusinesses />
 
-        <ForBusinessSection />
+          <ForBusinessSection />
 
-        <BrowseByCitySection />
-      </main>
+          <BrowseByCitySection />
+        </main>
+      </div>
     </div>
   );
 }

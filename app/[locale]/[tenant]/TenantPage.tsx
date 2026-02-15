@@ -422,23 +422,31 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
     return secondsToTime(todayHours.end);
   };
 
+  // Detect /b/ direct route vs subdomain route for navigation
+  const pathSegments = pathname.split('/').filter(Boolean);
+  const isDirectRoute = pathSegments[1] === 'b';
+  const basePath = isDirectRoute ? `/${locale}/b/${pathSegments[2]}` : `/${locale}`;
+
   const handleBookService = async (service: Service) => {
     setBookingServiceId(service.id);
     // Clear any saved booking state before starting fresh
     document.cookie = `blyss_booking_${businessId}=; path=/; max-age=0`;
     await setBookingIntent(businessId, [service.id]);
-    router.push(`/${locale}/booking`);
+    router.push(`${basePath}/booking`);
   };
 
   const switchLocale = (newLocale: Locale) => {
-    // usePathname() returns the rewritten path: /{locale}/{tenantSlug}/...
-    // But the visible URL is /{locale}/... (tenant is in the subdomain)
-    // Strip the locale + tenant prefix, keep the rest, build new path
     const segments = pathname.split('/').filter(Boolean);
-    // segments: ['uz', 'tenantSlug', 'booking', ...] → rest = ['booking', ...]
-    const rest = segments.slice(2);
-    const newPath = `/${newLocale}${rest.length > 0 ? '/' + rest.join('/') : ''}`;
-    router.push(newPath);
+    if (segments[1] === 'b') {
+      // Direct URL route: /{locale}/b/{slug}/...
+      const rest = segments.slice(1);
+      router.push(`/${newLocale}/${rest.join('/')}`);
+    } else {
+      // Subdomain route: /{locale}/{tenantSlug}/...
+      const rest = segments.slice(2);
+      const newPath = `/${newLocale}${rest.length > 0 ? '/' + rest.join('/') : ''}`;
+      router.push(newPath);
+    }
   };
 
   const filteredServices = services.filter(service => {
@@ -707,7 +715,7 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
               {/* My Bookings button */}
               {savedUser && (
                 <button
-                  onClick={() => { setNavigatingToBookings(true); router.push(`/${locale}/bookings`); }}
+                  onClick={() => { setNavigatingToBookings(true); router.push(`${basePath}/bookings`); }}
                   disabled={navigatingToBookings}
                   className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-white rounded-xl font-semibold text-base hover:bg-primary/90 transition-colors disabled:opacity-70"
                 >

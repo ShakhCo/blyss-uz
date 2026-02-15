@@ -10,7 +10,7 @@ export function VenueCard({ venue }: VenueCardProps) {
   return (
     <div className="group cursor-pointer transition-transform duration-300 hover:scale-105">
       {/* Image Container */}
-      <div className="relative w-full aspect-[3/2] rounded-xl overflow-hidden bg-gray-200 mb-3">
+      <div className="relative w-full aspect-[3/2] rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800 mb-3">
         <Image
           src={venue.image}
           alt={venue.name}
@@ -33,12 +33,12 @@ export function VenueCard({ venue }: VenueCardProps) {
         </div>
 
         {/* Address */}
-        <p className="text-sm text-gray-500 line-clamp-1">
+        <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
           {venue.address}
         </p>
 
         {/* Category Tag */}
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-400 dark:text-gray-500">
           {venue.category}
         </p>
       </div>

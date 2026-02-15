@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-color-scheme="dark"], [data-color-scheme="dark"] *));
+
 :root {
   --background: #f8f8f8;
   --foreground: #171717;
@@ -15,7 +17,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-color-scheme]) {
     --background: #0a0a0a;
     --foreground: #fafafa;
   }
@@ -190,6 +192,9 @@ button:active {
 img {
   background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
 }
+[data-color-scheme="dark"] img {
+  background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+}
 
 /* Selection color */
 ::selection {
@@ -238,6 +243,9 @@ img {
 @supports not (backdrop-filter: blur(10px)) {
   .backdrop-blur-sm {
     background-color: rgba(255, 255, 255, 0.95);
+  }
+  [data-color-scheme="dark"] .backdrop-blur-sm {
+    background-color: rgba(10, 10, 10, 0.95);
   }
 }
 

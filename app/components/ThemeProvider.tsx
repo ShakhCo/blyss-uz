@@ -11,14 +11,20 @@ function ThemeProviderWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
 
-    if (colorScheme === 'light') {
-      root.setAttribute('data-color-scheme', 'light');
-    } else if (colorScheme === 'dark') {
-      root.setAttribute('data-color-scheme', 'dark');
-    } else {
-      // Remove the attribute to respect system preference
-      root.removeAttribute('data-color-scheme');
+    if (colorScheme === 'light' || colorScheme === 'dark') {
+      root.setAttribute('data-color-scheme', colorScheme);
+      return;
     }
+
+    // No explicit param — detect system preference
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    root.setAttribute('data-color-scheme', mq.matches ? 'dark' : 'light');
+
+    const handler = (e: MediaQueryListEvent) => {
+      root.setAttribute('data-color-scheme', e.matches ? 'dark' : 'light');
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
   }, [colorScheme]);
 
   return <>{children}</>;

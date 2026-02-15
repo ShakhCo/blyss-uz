@@ -110,32 +110,32 @@ export function UserMenu({ locale, user: initialUser }: UserMenuProps) {
     <div ref={menuRef} className="relative">
       <button
         onClick={() => setDropdownOpen((prev) => !prev)}
-        className="flex items-center gap-2 rounded-full px-1 py-1 pr-3 bg-white/90 backdrop-blur-sm shadow-sm hover:bg-white transition-colors cursor-pointer"
+        className="flex items-center gap-2 rounded-full px-1 py-1 pr-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-sm hover:bg-white dark:hover:bg-gray-800 transition-colors cursor-pointer"
       >
         <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-semibold">
           {getInitial(user)}
         </div>
-        <span className="text-sm font-medium text-gray-800 max-w-[120px] truncate">
+        <span className="text-sm font-medium text-gray-800 dark:text-gray-200 max-w-[120px] truncate">
           {getDisplayName(user)}
         </span>
       </button>
 
       {dropdownOpen && (
-        <div className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-lg border border-gray-100 py-2 min-w-48 z-50">
+        <div className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-2 min-w-48 z-50">
           <Link
             href={`/${locale}/bookings`}
             onClick={() => setDropdownOpen(false)}
-            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
           >
             <CalendarDays size={16} className="text-gray-400" />
             {t.myBookings}
           </Link>
 
-          <div className="border-t border-gray-100 my-1" />
+          <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
 
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-gray-50 cursor-pointer transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
           >
             <LogOut size={16} className="text-red-400" />
             {t.logOut}
