@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'X-Frame-Options',
-            value: 'DENY',
+            value: 'ALLOW-FROM https://blyss.uz',
           },
           {
             key: 'Referrer-Policy',
@@ -41,7 +41,7 @@ const nextConfig: NextConfig = {
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://api.blyss.uz https://www.googleapis.com",
               "frame-src https://www.google.com",
-              "frame-ancestors 'none'",
+              "frame-ancestors 'self' https://*.blyss.uz https://blyss.uz",
               "base-uri 'self'",
               "form-action 'self'",
             ].join('; '),
