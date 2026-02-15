@@ -514,10 +514,10 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
             alt={business.name}
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute top-3 right-3 lg:hidden">
+          <div className="absolute top-3 right-3 lg:hidden" onClick={(e) => e.stopPropagation()}>
             <LanguageSwitcher />
           </div>
-          <div className="absolute top-4 right-4 hidden lg:flex items-center gap-2">
+          <div className="absolute top-4 right-4 hidden lg:flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <LanguageSwitcherDesktop />
           </div>
         </div>
@@ -561,7 +561,8 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
                 </p>
               )}
               {(geoAddress || business.location?.address) && (
-                <p className="text-sm lg:text-base text-zinc-500 dark:text-zinc-400 mt-1 capitalize">
+                <p className="text-sm lg:text-base text-zinc-500 dark:text-zinc-400 mt-1 capitalize flex items-center gap-1">
+                  <MapPin size={14} className="shrink-0" />
                   {geoAddress || business.location?.address}
                 </p>
               )}
