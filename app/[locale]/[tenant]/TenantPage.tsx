@@ -59,6 +59,7 @@ interface Photo {
 
 interface Business {
   name: string;
+  bio?: string;
   business_type: string;
   location?: {
     lat?: number;
@@ -554,6 +555,11 @@ export function TenantPage({ business, services, employees, photos, tenantSlug, 
               <h1 className="text-2xl lg:text-4xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">
                 {business.name}
               </h1>
+              {business.bio && (
+                <p className="text-sm lg:text-base text-zinc-600 dark:text-zinc-400 mt-1">
+                  {business.bio}
+                </p>
+              )}
               {(geoAddress || business.location?.address) && (
                 <p className="text-sm lg:text-base text-zinc-500 dark:text-zinc-400 mt-1">
                   {geoAddress || business.location?.address}

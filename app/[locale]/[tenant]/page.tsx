@@ -45,6 +45,7 @@ interface BusinessData {
   business: {
     id: string
     name: string
+    bio?: string
     business_type: string
     location: {
       lat?: number
